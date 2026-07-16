@@ -58,8 +58,7 @@ jobs:
       - name: Run pytest_harness validation suite
         run: >
           python
-          developer_resources/pytest_harness_validation/
-          pytest_harness_validation_runner.py
+          developer_resources/pytest_harness_validation/pytest_harness_validation_runner.py
         continue-on-error: true
 
       - name: Run basic example project
@@ -68,5 +67,4 @@ jobs:
       - name: Run Ruff, mypy, and Vulture
         run: >
           python
-          developer_resources/pytest_harness_validation/
-          linter_runner.py
+          developer_resources/pytest_harness_validation/linter_runner.py
