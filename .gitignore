@@ -1,0 +1,57 @@
+# .gitignore
+# to force clear old git,
+# in Terminal: (.venv) renyawasson@Renyas-MacBook-Air logduo_project: git rm -r -f  --cached .
+# then in Terminal to redo new git: git add .
+# then in Terminal to confirm new git: git status
+
+
+# --- sub-folders ---
+deprecated/
+docs/
+    todo/
+
+
+# --- virtual environments ---
+.venv
+.venv/
+venv/
+env/
+
+# --- python cache ---
+__pycache__/
+*.py[cod]
+
+# --- pycharm ---
+.idea/
+
+# --- logs / generated artifacts ---
+logs/
+**/logs/
+/logduo_docs/
+
+# --- build artifacts ---
+build/
+dist/
+*.egg-info/
+*.iml
+
+
+# --- macOS ---
+.DS_Store
+
+# --- pytest ---
+.pytest_cache/
+
+# --- mypy ---
+.mypy_cache/
+
+# --- Ruff ---
+.ruff_cache/
+
+# --- coverage ---
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Jupyter ---
+.ipynb_checkpoints/

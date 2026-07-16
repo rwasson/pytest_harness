@@ -1,0 +1,138 @@
+# pyproject.toml
+# in terminal at prompt: (.venv) renyawasson@Renyas-MacBook-Air logduo_project %
+# enter: pip install -e ".[dev]"
+# then:  pip install --upgrade pip
+
+[tool.setuptools.package-data]
+pytest_harness = [
+  "py.typed",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest_harness"
+readme = "README.md"
+version = "0.0.8"
+authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
+description = "Logging, console output, and file management for Python — simple by default, configurable for advanced workflows."
+
+license = "MIT"
+license-files = ["LICENSE"]
+
+requires-python = ">=3.13"
+
+keywords = [
+  "pytest",
+  "coverage",
+  "runner",
+  "python",
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+
+
+
+# --- Runtime dependencies -----------------------------------------------------
+dependencies = [
+  "pytest>=9.0.0",
+  "pytest-cov>=5.0.0",
+  "pytest-json-report",
+  "pytest-rerunfailures>=16,<17",
+  "logduo>=0.1.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/rwasson/pytest_harness"
+Repository = "https://github.com/rwasson/pytest_harness"
+Issues = "https://github.com/rwasson/pytest_harness/issues"
+
+# --- Optional dependencies ----------------------------------------------------
+[project.optional-dependencies]
+dev = [
+  "build",
+  "black>=24.0.0",
+  "ruff>=0.15.0",
+  "mypy>=1.10,<3",
+  "vulture",
+  "types-setuptools",
+  "types-requests",
+  "isort>=5.13.0",
+  "pre-commit>=3.7.0",
+]
+
+
+# --- setuptools ---------------------------------------------------------------
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+# --- logduo -------------------------------------------------------------------
+[tool.logduo]
+console_theme = "light"
+retention = "off"
+console_verbosity = 3
+log_verbosity = 3
+keep = 3
+
+
+# --- mypy ---------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+exclude = ["deprecated"]
+warn_unused_ignores = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_configs = true
+strict_optional = true
+no_implicit_optional = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+
+
+
+# --- Ruff ---------------------------------------------------------------------
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+exclude = ["build", "deprecated"]     # exclude certain directories
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "ANN",
+    "UP",
+    "PLR",
+]
+
+ignore = [
+    "ANN401",                  # any-type
+    "PLR0912",                 # too-many-branches
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/logduo/__init__.py" = ["F401"]   # unused-import
+
+[tool.ruff.lint.pylint]
+max-args = 15
+
+[tool.ruff.lint.isort]
+# To sort imports, in Terminal:
+# run ruff check src --select I --fix
+combine-as-imports = true
+force-single-line = false  # if false, allows: from typing import Any, Callable
+order-by-type = false  # false preserves expected order
+
+
+
