@@ -63,7 +63,7 @@ jobs:
         continue-on-error: true
 
       - name: Run basic example project
-        run: python examples/basic_project/pytest_harness_validation_runner.py
+        run: python examples/basic_project/pytest_runner.py
 
       - name: Run Ruff, mypy, and Vulture
         run: >
