@@ -1,8 +1,6 @@
 pytest_harness
 ==============
 
-Purpose
--------
 pytest_harness is a one-click pytest runner for IDE-centered workflows.
 
 It handles pytest, coverage, subprocess isolation, logs, and summary reporting
@@ -13,10 +11,10 @@ Why use pytest_harness?
 - one-click test execution from an IDE
 - readable per-test-file logs where printed diagnostics are easy to find
 - dedicated test-file coverage reports showing missing source lines (helpful for writing new tests)
-- no command-line flags
-- remaining test files still run when one file crashes
+- no command-line flags and no pyproject.toml settings required (uses its own coverage settings)
+- remaining test files still run after one test file crashes
 - explicit reporting of import errors, collection failures, and files with no collected tests
-- one compact dashboard for the complete run, including combined coverage
+- compact dashboard for the complete run, including combined coverage
 
 pytest_harness is a workflow tool, not a pytest plugin.
 
@@ -29,12 +27,14 @@ Create a runner script in your project:
 
     from pytest_harness import pytest_harness
 
+    # adjust paths as needed
     PROJECT_ROOT = Path(__file__).resolve().parent
 
     pytest_harness(
         test_dir=PROJECT_ROOT / "tests",
         log_dir=PROJECT_ROOT / "logs",
         source_dir=PROJECT_ROOT / "src" / "my_package",
+        log_keep=5,
     )
 
 In PyCharm, right-click the runner script and run it.
@@ -47,28 +47,9 @@ pytest_harness will:
 4. combine coverage across all test files
 5. write the requested logs
 6. print a compact dashboard
-7. exit with code 0 or 1
-
-
-Public API
-----------
-Main entry point:
-
-    pytest_harness(
-        *,
-        test_dir: Path,
-        log_dir: Path,
-        source_dir: Path,
-        include_list: list[str | Path] | None = None,
-        exclude_list: list[str | Path] | None = None,
-        individual_logs: bool = True,
-        coverage_warning_threshold: float | None = 85.0,
-        show_source_file_coverage: bool = True,
-        show_skipped_and_xfailed: bool = False,
-        log_keep: int | None = None,
-        console_wrap_width: int = 150,
-        debug_pytest_harness: bool = False,
-    ) -> int
+7. keep only the number of recent time-stamped log directories specified by log_keep
+   (default: keep all)
+8. exit with code 0 or 1
 
 
 Arguments
@@ -122,7 +103,7 @@ Arguments
         85.0
 
 `show_source_file_coverage`
-    If True, displays statement coverage for each covered source file.
+    If True, displays the source-file coverage table.
 
     Source files are sorted from lowest to highest statement coverage.
 
@@ -131,22 +112,11 @@ Arguments
         True
 
 `show_skipped_and_xfailed`
-    Controls whether Skipped and XFailed test functions appear in the detailed
-    flagged-test section.
+    If True, includes Skipped and XFailed outcomes in the detailed flagged-test
+    section.
 
-    When False, the detailed section includes:
-
-    - Failed
-    - Error
-    - XPassed
-
-    When True, it also includes:
-
-    - Skipped
-    - XFailed
-
-    Aggregate outcome counts always include Skipped and XFailed regardless of
-    this setting.
+    Failed, Error, and XPassed outcomes are always included. Aggregate counts
+    always include all outcomes.
 
     Default:
 
@@ -157,7 +127,7 @@ Arguments
 
     Use None to disable automatic pruning.
 
-    When supplied, the value must be an integer of at least 1.
+    When supplied, the value must be a positive integer.
 
     Default:
 
@@ -166,7 +136,7 @@ Arguments
 `console_wrap_width`
     Console wrapping width used by Logduo.
 
-    Must be an integer of at least 80.
+    Must be a positive integer >= 80.
 
     Default:
 
@@ -181,31 +151,6 @@ Arguments
 
         False
 
-
-Expanded Example
-----------------
-A runner may specify every public option:
-
-    from pathlib import Path
-
-    from pytest_harness import pytest_harness
-
-    PROJECT_ROOT = Path(__file__).resolve().parent
-
-    pytest_harness(
-        test_dir=PROJECT_ROOT / "tests",
-        log_dir=PROJECT_ROOT / "logs",
-        source_dir=PROJECT_ROOT / "src" / "my_package",
-        include_list=None,
-        exclude_list=None,
-        individual_logs=True,
-        coverage_warning_threshold=85.0,
-        show_source_file_coverage=True,
-        show_skipped_and_xfailed=False,
-        log_keep=10,
-        console_wrap_width=150,
-        debug_pytest_harness=False,
-    )
 
 
 Exit Codes
@@ -232,31 +177,8 @@ that file was not successfully validated.
 Likewise, a selected file that collects no tests causes the run to fail because
 pytest_harness cannot confirm that the file performed its intended testing.
 
-How It Works
-------------
-pytest_harness runs each selected pytest test file in its own subprocess,
-collects the results, combines coverage, prints a final dashboard, and exits
-with a standard process result code.
-
-A broken test file does not stop the remaining files from running. Import
-errors, collection failures, and files with no collected tests are reported
-separately. When `individual_logs=True`, each test file also receives a detailed
-log containing its pytest output and Coverage.py missing-line information.
-pytest_harness uses Logduo for logging and output management, but ordinary test
-files do not need to configure or import Logduo.
-
-
-Dashboard
----------
-The dashboard is divided into four sections:
-
-- test-file summary
-- test-function summary
-- aggregate coverage
-- optional source-file coverage table
-
-Example:
-
+Example Dashboard
+-----------------
     ════════════════════════════════════════════════════════════
                             TEST SUMMARY
     ════════════════════════════════════════════════════════════
@@ -300,110 +222,27 @@ Example:
     100%      52/52       pytest_harness.py
 
 
-Test-File Summary
------------------
-The test-file summary reports:
-
-- number of source files included in coverage
-- number of selected test files
-- number of test files that passed every collected test
-- files that were not processed
-- files that collected no tests
-
-A file is counted as having passed all tests only when:
-
-- it was successfully processed
-- it collected at least one test
-- every collected test passed
-
-A file containing only Skipped or XFailed tests is not counted as having passed
-all tests.
-
-
-Test-Function Summary
----------------------
-The test-function summary displays aggregate pytest outcomes:
-
-- Passed
-- Failed
-- Error
-- XPassed
-- Skipped
-- XFailed
-
-These counts are shown regardless of the `show_skipped_and_xfailed` setting.
-
-
 Flagged Test Functions
 ----------------------
-When relevant outcomes are present, pytest_harness adds a detailed section
+When relevant test outcomes occur, pytest_harness adds a detailed section
 grouped by test file.
 
-By default, the section shows:
+By default, the flagged test function section shows outcomes for:
 
 - Failed
 - Error
 - XPassed
 
-Example:
+To display detailed outcomes for Skipped and XFailed, 
+set `show_skipped_and_xfailed=True`.
+
+Example flagged test function section for a test file with one failed test:
 
     Flagged test functions by test file (in 1 test file):
 
     test_example.py
-
         Failed (1):
             test_invalid_value
-
-Set:
-
-    show_skipped_and_xfailed=True
-
-to include Skipped and XFailed test functions in this detailed section as well.
-
-
-Source-File Coverage
---------------------
-When:
-
-    show_source_file_coverage=True
-
-pytest_harness displays a source-file coverage table.
-
-The table includes:
-
-- rounded statement coverage percentage
-- executed statement count
-- total statement count
-- source filename
-
-Files are sorted from lowest to highest statement coverage so the files most
-likely to need attention appear first.
-
-Source files containing no executable statements are omitted from the table.
-
-Set:
-
-    show_source_file_coverage=False
-
-to hide the table. Aggregate Statements, Branches, and Total coverage remain
-visible.
-
-
-Runner Script Guidelines
-------------------------
-The runner script should contain project paths and test-runner settings.
-
-Typical responsibilities:
-
-- define test_dir
-- define log_dir
-- define source_dir
-- optionally define include_list
-- optionally define exclude_list
-- select reporting options
-- call pytest_harness()
-
-The runner script is normally the file run directly from the IDE.
 
 
 Test File Guidelines
@@ -522,14 +361,6 @@ After all selected test files finish:
 - pytest_harness builds its source-file records
 - temporary coverage files are deleted
 
-Coverage combination has been validated by comparing:
-
-- three isolated test files with separately collected coverage
-- one large test file containing the same tests
-
-The resulting statement counts, branch counts, executed lines, missing lines,
-executed branch pairs, and total branch pairs matched.
-
 
 Logs
 ----
@@ -564,7 +395,7 @@ A complete runnable example project is available under:
 It contains:
 
     examples/basic_project/
-        run_tests.py
+        pytest_runner.py
         src/
             sample_package/
                 __init__.py
@@ -575,6 +406,6 @@ It contains:
 
 Run:
 
-    examples/basic_project/run_tests.py
+    examples/basic_project/pytest_runner.py
 
 from an IDE to see the normal pytest_harness workflow.
