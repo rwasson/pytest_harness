@@ -11,7 +11,7 @@ Why use pytest_harness?
 - one-click test execution from an IDE
 - readable per-test-file logs where printed diagnostics are easy to find
 - dedicated test-file coverage reports showing missing source lines (helpful for writing new tests)
-- no command-line flags and no pyproject.toml settings required (uses its own coverage settings)
+- no command-line flags and no `pyproject.toml` settings required (uses its own coverage settings)
 - remaining test files still run after one test file crashes
 - explicit reporting of import errors, collection failures, and files with no collected tests
 - compact dashboard for the complete run, including combined coverage
