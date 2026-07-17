@@ -908,6 +908,65 @@ def test_11_exits_with_code_one_when_run_failed(
     )
 
 
+def test_12_real_run_exits_with_code_one_for_import_error_test_file(
+    tmp_path: Path,
+) -> None:
+    project_root = Path(__file__).resolve().parents[3]
+
+    test_dir = (
+        project_root
+        / "developer_resources"
+        / "pytest_harness_validation"
+        / "pytest_files"
+    )
+    source_dir = project_root / "src"
+    log_dir = tmp_path / "logs"
+
+    with pytest.raises(SystemExit) as exc_info:
+        module.pytest_harness(
+            test_dir=test_dir,
+            log_dir=log_dir,
+            source_dir=source_dir,
+            include_list=[
+                "test_import_error.py",
+            ],
+            individual_logs=False,
+            log_keep=None,
+            debug_pytest_harness=False,
+        )
+
+    assert exc_info.value.code == 1
+
+
+def test_13_real_run_exits_with_code_one_for_import_empty_test_file(
+    tmp_path: Path,
+) -> None:
+    project_root = Path(__file__).resolve().parents[3]
+
+    test_dir = (
+        project_root
+        / "developer_resources"
+        / "pytest_harness_validation"
+        / "pytest_files"
+    )
+    source_dir = project_root / "src"
+    log_dir = tmp_path / "logs"
+
+    with pytest.raises(SystemExit) as exc_info:
+        module.pytest_harness(
+            test_dir=test_dir,
+            log_dir=log_dir,
+            source_dir=source_dir,
+            include_list=[
+                "test_empty.py",
+            ],
+            individual_logs=False,
+            log_keep=None,
+            debug_pytest_harness=False,
+        )
+
+    assert exc_info.value.code == 1
+
 
 # === Helpers =================================================================
 

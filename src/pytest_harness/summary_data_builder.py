@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from coverage import Coverage
+from coverage.exceptions import NoDataError
 
 from pytest_harness.constants_and_classes import (
     AggregateTestSummary,
@@ -172,18 +173,33 @@ def _combine_coverage_data_files(
     """Combine per-test-file coverage data and return official totals."""
 
     combined_data_file_path = coverage_dir_path / ".coverage"
-    combined_json_file_path = coverage_dir_path / "combined_coverage.json"
+    combined_json_file_path = (
+        coverage_dir_path / "combined_coverage.json"
+    )
 
     coverage_obj = Coverage(
         data_file=str(combined_data_file_path),
         branch=True,
     )
 
-    coverage_obj.combine(
-        data_paths=[str(coverage_dir_path)],
-        strict=True,
-        keep=True,
-    )
+    try:
+        coverage_obj.combine(
+            data_paths=[str(coverage_dir_path)],
+            strict=True,
+            keep=True,
+        )
+    except NoDataError:
+        return CombinedCoverageResult(
+            source_file_coverage_records={},
+            executed_line_count=0,
+            total_line_count=0,
+            executed_branch_count=0,
+            total_branch_count=0,
+            statement_coverage_pct=0.0,
+            branch_coverage_pct=0.0,
+            total_coverage_pct=0.0,
+        )
+
     coverage_obj.save()
 
     coverage_obj.json_report(
@@ -192,16 +208,27 @@ def _combine_coverage_data_files(
     )
 
     report = json.loads(
-        combined_json_file_path.read_text(encoding="utf-8")
+        combined_json_file_path.read_text(
+            encoding="utf-8",
+        )
     )
 
-    # Official aggregate totals calculated by Coverage.py.
     totals = report["totals"]
 
-    executed_line_count = int(totals["covered_lines"])
-    total_line_count = int(totals["num_statements"])
-    executed_branch_count = int(totals["covered_branches"])
-    total_branch_count = int(totals["num_branches"])
+    executed_line_count = int(
+        totals["covered_lines"]
+    )
+    total_line_count = int(
+        totals["num_statements"]
+    )
+
+    # Coverage.py omits these fields when no branches exist.
+    executed_branch_count = int(
+        totals.get("covered_branches", 0)
+    )
+    total_branch_count = int(
+        totals.get("num_branches", 0)
+    )
 
     statement_coverage_pct = (
         100 * executed_line_count / total_line_count
@@ -215,16 +242,24 @@ def _combine_coverage_data_files(
         else 0.0
     )
 
-    total_coverage_pct = float(totals["percent_covered"])
+    total_coverage_pct = float(
+        totals["percent_covered"]
+    )
 
     source_dir = source_dir.resolve()
-    records: dict[str, SourceFileCoverageRecord] = {}
+
+    records: dict[
+        str,
+        SourceFileCoverageRecord,
+    ] = {}
 
     for reported_path, file_data in report["files"].items():
         source_file_path = Path(reported_path)
 
         if not source_file_path.is_absolute():
-            source_file_path = Path.cwd() / source_file_path
+            source_file_path = (
+                Path.cwd() / source_file_path
+            )
 
         source_file_path = source_file_path.resolve()
 
@@ -236,32 +271,54 @@ def _combine_coverage_data_files(
 
         executed_lines: set[int] = {
             int(line_number)
-            for line_number in file_data["executed_lines"]
+            for line_number
+            in file_data["executed_lines"]
         }
 
         missing_lines: set[int] = {
             int(line_number)
-            for line_number in file_data["missing_lines"]
+            for line_number
+            in file_data["missing_lines"]
         }
 
-        executed_branch_pairs: set[tuple[int, int]] = {
-            (int(first_line), int(second_line))
+        # Coverage.py omits these fields when no branches exist.
+        executed_branch_pairs: set[
+            tuple[int, int]
+        ] = {
+            (
+                int(first_line),
+                int(second_line),
+            )
             for first_line, second_line
-            in file_data["executed_branches"]
+            in file_data.get(
+                "executed_branches",
+                [],
+            )
         }
 
-        missing_branch_pairs: set[tuple[int, int]] = {
-            (int(first_line), int(second_line))
+        missing_branch_pairs: set[
+            tuple[int, int]
+        ] = {
+            (
+                int(first_line),
+                int(second_line),
+            )
             for first_line, second_line
-            in file_data["missing_branches"]
+            in file_data.get(
+                "missing_branches",
+                [],
+            )
         }
 
-        total_branch_pairs: set[tuple[int, int]] = (
+        total_branch_pairs = (
             executed_branch_pairs
             | missing_branch_pairs
         )
 
-        branch_destinations: dict[int, set[int]] = {}
+        branch_destinations: dict[
+            int,
+            set[int],
+        ] = {}
 
         for first_line, second_line in total_branch_pairs:
             branch_destinations.setdefault(
@@ -269,24 +326,37 @@ def _combine_coverage_data_files(
                 set(),
             ).add(second_line)
 
-        branch_source: set[tuple[int, int]] = {
-            (first_line, len(destinations))
+        branch_source: set[
+            tuple[int, int]
+        ] = {
+            (
+                first_line,
+                len(destinations),
+            )
             for first_line, destinations
             in branch_destinations.items()
         }
 
-        source_file_path_str = str(source_file_path)
+        source_file_path_str = str(
+            source_file_path
+        )
 
-        records[source_file_path_str] = SourceFileCoverageRecord(
+        records[
+            source_file_path_str
+        ] = SourceFileCoverageRecord(
             source_file_path=source_file_path_str,
             executed_lines=executed_lines,
             missing_lines=missing_lines,
             total_line_count=int(
-                file_data["summary"]["num_statements"]
+                file_data["summary"][
+                    "num_statements"
+                ]
             ),
             branch_source=branch_source,
             total_branch_pairs=total_branch_pairs,
-            executed_branch_pairs=executed_branch_pairs,
+            executed_branch_pairs=(
+                executed_branch_pairs
+            ),
         )
 
     return CombinedCoverageResult(
@@ -299,5 +369,3 @@ def _combine_coverage_data_files(
         branch_coverage_pct=branch_coverage_pct,
         total_coverage_pct=total_coverage_pct,
     )
-
-

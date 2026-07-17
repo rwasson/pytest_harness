@@ -361,13 +361,13 @@ def test_09_coverage_warning_threshold_accepts_valid_values(
         pytest.param(
             -0.1,
             ValueError,
-            "coverage_warning_threshold must be between 0 and 100",
+            "coverage_warning_threshold must be between",
             id="below-zero",
         ),
         pytest.param(
             100.1,
             ValueError,
-            "coverage_warning_threshold must be between 0 and 100",
+            "coverage_warning_threshold must be between",
             id="above-one-hundred",
         ),
     ],

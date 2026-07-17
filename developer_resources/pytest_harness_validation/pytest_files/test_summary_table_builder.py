@@ -135,17 +135,9 @@ def test_04_includes_special_test_file_categories() -> None:
         show_skipped_and_xfailed=False,
     )
 
-    assert (
-        "Test files not processed, often due to "
-        "import error (1):"
-        in text
-    )
+    assert "Test files not processed, often due to an import error (1):" in text
     assert "test_collection_problem.py" in text
-
-    assert (
-        "Test files with no collected tests (1):"
-        in text
-    )
+    assert "Test files with no collected tests (1):" in text
     assert "test_empty.py" in text
 
 

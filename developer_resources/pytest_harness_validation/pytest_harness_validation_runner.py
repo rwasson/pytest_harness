@@ -16,7 +16,12 @@ include_list: list[str] | None = None
 
 
 # Exclude specific test_*.py files if needed.
-exclude_list: list[str] | None = None
+# These two files are tested in test_pytest_harness.py
+# exclude_list: list[str] | None = None
+exclude_list = [
+    "test_import_error.py",
+    "test_empty.py",
+]
 
 
 
