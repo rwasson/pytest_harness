@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytest_harness"
 readme = "README.md"
-version = "0.1.1"
+version = "0.1.2"
 authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
 description = "An IDE-friendly pytest workflow runner with coverage, a console dashboard and summary log, and optional detailed per-test-file logs."
 license = "MIT"
@@ -21,15 +21,19 @@ license-files = ["LICENSE"]
 requires-python = ">=3.13"
 
 keywords = [
-  "pytest",
-  "coverage",
-  "runner",
-  "python",
+    "pytest",
+    "testing",
+    "coverage",
+    "test runner",
+    "python",
+    "IDE"
 ]
 
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Operating System :: OS Independent"
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Testing",
 ]
 
 
@@ -39,7 +43,7 @@ dependencies = [
   "pytest-cov>=5.0.0",
   "pytest-json-report",
   "pytest-rerunfailures>=16,<17",
-  "logduo>=0.1.2",
+  "logduo>=0.1.3",
 ]
 
 [project.urls]
@@ -51,7 +55,7 @@ Issues = "https://github.com/rwasson/pytest_harness/issues"
 [project.optional-dependencies]
 dev = [
   "build",
-  "black>=24.0.0",
+  "twine",
   "ruff>=0.15.0",
   "mypy>=1.10,<3",
   "vulture",
@@ -113,7 +117,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/logduo/__init__.py" = ["F401"]   # unused-import
+"src/pytest_harness/__init__.py" = ["F401"]
 
 [tool.ruff.lint.pylint]
 max-args = 15
