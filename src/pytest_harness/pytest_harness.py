@@ -15,20 +15,18 @@ import tempfile
 from pathlib import Path
 from typing import NoReturn
 
+from logduo import log
+
 from pytest_harness.arg_resolver import _resolve_harness_args
 from pytest_harness.constants_and_classes import (
     DEFAULT_COVERAGE_WARNING_THRESHOLD,
     DEFAULT_WIDTH,
     TestFileRecord,
 )
-
-from logduo import log
-
 from pytest_harness.record_builder import _build_test_file_record
 from pytest_harness.resolve_test_file_paths import _resolve_test_file_paths
 from pytest_harness.summary_data_builder import _build_summary_data, _combine_coverage_data_files
 from pytest_harness.summary_table_builder import _build_summary_table
-
 
 
 # --- pytest_harness() ---------------------------------------------------------
