@@ -142,12 +142,18 @@ def _build_test_file_record(  # noqa: PLR0915
     subprocess_env = os.environ.copy()
     subprocess_env["COVERAGE_FILE"] = str(coverage_data_file_path)
 
+    # The harness captures child-process output as text.
+    # Use UTF-8 on both ends so Unicode test output is transported consistently
+    # across Windows, macOS, and Linux.
+    subprocess_env["PYTHONIOENCODING"] = "utf-8"
+
     process = subprocess.Popen(
         pytest_cmd,
         env=subprocess_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
     )
 
     captured: list[str] = []
@@ -159,6 +165,21 @@ def _build_test_file_record(  # noqa: PLR0915
 
     process.wait()
     duration = time.time() - start
+
+    if debug_pytest_harness:
+        if process.returncode != 0:
+            print()
+            print("=" * 80)
+            print(f"DEBUG: FAILED TEST FILE: {test_file_path}")
+            print("=" * 80)
+            captured_text = "".join(captured)
+            output_encoding = sys.stdout.encoding or "utf-8"
+            safe_captured_text = captured_text.encode(
+                output_encoding,
+                errors="backslashreplace",
+            ).decode(output_encoding)
+            print(safe_captured_text, flush=True)
+            print("=" * 80)
 
     if test_logger is not None:
         cleaned = strip_ansi("".join(captured))

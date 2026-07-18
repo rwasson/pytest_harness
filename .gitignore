@@ -1,3 +1,5 @@
+# .gitignore
+
 # --- private working folders ---
 deprecated/
 docs/todo/

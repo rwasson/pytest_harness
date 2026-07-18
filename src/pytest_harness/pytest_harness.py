@@ -17,6 +17,7 @@ Last edited: 2026-07-11
 
 import tempfile
 from pathlib import Path
+from typing import NoReturn
 
 from logduo import log
 
@@ -49,7 +50,152 @@ def pytest_harness(
     console_wrap_width: int = DEFAULT_WIDTH,
     show_skipped_and_xfailed: bool = False,
     debug_pytest_harness: bool = False,
-) -> int:
+) -> NoReturn:
+    """
+    Purpose
+    -------
+    Run a complete pytest workflow from an IDE or Python script.
+
+    pytest_harness runs each selected test file in an isolated subprocess,
+    captures readable logs, combines coverage across all test files, and
+    displays one aggregate test and coverage dashboard.
+
+    The function ends the process with:
+        - SystemExit(0) when the complete test run succeeds
+        - SystemExit(1) when tests fail or a test file cannot be processed
+
+    Example
+    -------
+        from pathlib import Path
+
+        pytest_harness(
+            test_dir=Path("tests"),
+            log_dir=Path("logs"),
+            source_dir=Path("src") / "my_package",
+            log_keep=5,
+        )
+
+    Required arguments
+    ------------------
+    test_dir : Path
+        Directory containing the pytest test files to run.
+
+    log_dir : Path
+        Root directory where pytest_harness creates a time-stamped
+        output directory for the current run.
+
+        The run directory contains:
+            - the main summary log
+            - optional individual test-file logs
+
+    source_dir : Path
+        Source-code directory measured by coverage.
+
+        Example:
+            Path("src") / "my_package"
+
+        pytest_harness creates and manages its own temporary coverage
+        configuration. Coverage settings in pyproject.toml are not required.
+
+    Test selection
+    --------------
+    include_list : list[str | Path] | None
+        Restrict the run to specified test files or directories.
+
+        Paths are resolved relative to test_dir unless absolute paths
+        are supplied.
+
+        If omitted, all discoverable test files under test_dir are considered.
+
+    exclude_list : list[str | Path] | None
+        Exclude specified test files or directories from the run.
+
+        Paths are resolved relative to test_dir unless absolute paths
+        are supplied.
+
+    Logging
+    -------
+    individual_logs : bool
+        Create a separate detailed log for each test file.
+
+        Default:
+            True
+
+    log_keep : int | None
+        Number of recent time-stamped run directories to retain.
+
+        Use None to retain all run directories.
+
+        Default:
+            None
+
+    console_wrap_width : int
+        Maximum width used for console output and the summary dashboard.
+
+        Default:
+            DEFAULT_WIDTH
+
+    Coverage
+    --------
+    coverage_warning_threshold : float | None
+        Coverage percentage below which source files are marked with
+        a warning in the summary dashboard.
+
+        Use None to disable coverage warnings.
+
+        This setting does not change the process exit code.
+
+        Default:
+            DEFAULT_COVERAGE_WARNING_THRESHOLD
+
+    show_source_file_coverage : bool
+        Include the per-source-file coverage table in the summary dashboard.
+
+        Default:
+            True
+
+    Test outcome display
+    --------------------
+    show_skipped_and_xfailed : bool
+        Include detailed entries for Skipped and XFailed test functions.
+
+        Failed, Error, and XPassed test functions are always shown.
+
+        Default:
+            False
+
+    Debugging
+    ---------
+    debug_pytest_harness : bool
+        Display additional internal diagnostic information, including the
+        exact test files selected for execution.
+
+        Intended for debugging pytest_harness itself rather than ordinary
+        project test runs.
+
+        Default:
+            False
+
+    Failure rules
+    -------------
+    The run exits with SystemExit(1) when any of the following occurs:
+        - one or more test functions Failed
+        - one or more test functions produced an Error
+        - one or more tests unexpectedly XPassed
+        - a test file was not processed successfully
+        - a test file collected no tests
+
+    Skipped and XFailed tests do not cause the run to fail.
+
+    Notes
+    -----
+        - Each test file runs in its own subprocess.
+        - A crash or collection failure in one test file does not prevent
+          later test files from running.
+        - Coverage data from all successfully executed test files is combined.
+        - Temporary coverage files are removed after summary data is built.
+        - The function raises SystemExit rather than returning normally.
+    """
 
     args = _resolve_harness_args(
         test_dir=test_dir,
