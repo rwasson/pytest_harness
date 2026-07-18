@@ -1,19 +1,19 @@
 pytest_harness
 ==============
 
-pytest_harness is a one-click pytest runner for IDE-centered workflows.
-
+pytest_harness is a one-click pytest workflow runner for IDE-centered development.
 It handles pytest, coverage, subprocess isolation, logs, and summary reporting
-so test runs are easier to start and easier to interpret.
+so test runs are easy to start and interpret.
 
 Why use pytest_harness?
 -----------------------
 - one-click test execution from an IDE
-- readable per-test-file logs where printed diagnostics are easy to find
-- dedicated test-file coverage reports showing missing source lines (helpful for writing new tests)
-- no command-line flags and no `pyproject.toml` settings required (uses its own coverage settings)
+- optional per-test-file logs that display printed diagnostics and identify
+  uncovered source lines
+- no command-line flags or pyproject.toml coverage settings required
 - remaining test files still run after one test file crashes
-- explicit reporting of import errors, collection failures, and files with no collected tests
+- explicit reporting of import errors, collection failures, and files with
+  no collected tests
 - compact dashboard for the complete run, including combined coverage
 
 pytest_harness is a workflow tool, not a pytest plugin.
@@ -411,15 +411,9 @@ Run:
 from an IDE to see the normal pytest_harness workflow.
 
 
-Unicode and Subprocess Output
------------------------------
-Each selected test file runs in a child Python process whose captured standard
-output is explicitly configured as UTF-8. pytest_harness also reads that captured output as UTF-8.
+Unicode Output
+--------------
+Captured test output uses UTF-8, so Unicode characters display consistently
+across Windows, macOS, and Linux.
 
-This ensures that Unicode output from tests and libraries such as Rich is
-transported consistently across Windows, macOS, and Linux, including characters
-such as box-drawing symbols, accented text, and non-English text.
-
-This setting applies only to the captured text connection between the test
-subprocess and pytest_harness. It does not change operating-system path behavior,
-filesystem behavior, or other Windows-specific behavior being tested.
+Path and filesystem behavior are unchanged.
