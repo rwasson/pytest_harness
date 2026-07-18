@@ -1,16 +1,12 @@
 """
 pytest_harness.py
 
-pytest_harness is an IDE-friendly pytest runner built on Logduo.
-It runs test files in isolated subprocesses, captures readable logs,
-combines coverage, and produces a compact test dashboard.
+pytest_harness is an IDE-friendly pytest workflow runner built on Logduo.
 
-Responsibilities:
-- run each test file in isolation
-- create per-test-file logs
-- validate test execution succeeded
-- combine per-test-file coverage data
-- build aggregate coverage and test summaries
+- runs each test file in isolation and continues when an individual file fails
+- creates a console dashboard and summary log
+- optionally creates detailed per-test-file logs with missing source lines
+- presents aggregate coverage with optional per-test-file and per-source-file details
 
 Last edited: 2026-07-18
 """
@@ -25,13 +21,14 @@ from pytest_harness.constants_and_classes import (
     DEFAULT_WIDTH,
     TestFileRecord,
 )
+
+from logduo import log
+
 from pytest_harness.record_builder import _build_test_file_record
 from pytest_harness.resolve_test_file_paths import _resolve_test_file_paths
 from pytest_harness.summary_data_builder import _build_summary_data, _combine_coverage_data_files
-from pytest_harness.summary_table_builder import (
-    _build_summary_table,
-)
-from logduo import log
+from pytest_harness.summary_table_builder import _build_summary_table
+
 
 
 # --- pytest_harness() ---------------------------------------------------------
@@ -51,151 +48,92 @@ def pytest_harness(
     debug_pytest_harness: bool = False,
 ) -> NoReturn:
     """
-    Purpose
-    -------
     Run a complete pytest workflow from an IDE or Python script.
 
-    pytest_harness runs each selected test file in an isolated subprocess,
-    captures readable logs, combines coverage across all test files, and
-    displays one aggregate test and coverage dashboard.
-
-    The function ends the process with:
-        - SystemExit(0) when the complete test run succeeds
-        - SystemExit(1) when tests fail or a test file cannot be processed
+    pytest_harness runs each selected test file in an isolated subprocess, so
+    a crash or collection failure in one file does not prevent later files from
+    running. It combines coverage and presents one console dashboard and summary
+    log, with optional detailed logs for each test file.
 
     Example
     -------
+    Create a runner script such as ``run_tests.py`` and run it directly from
+    your IDE:
+
         from pathlib import Path
 
+        from pytest_harness import pytest_harness
+
+        PROJECT_DIR = Path(__file__).resolve().parent
+
         pytest_harness(
-            test_dir=Path("tests"),
-            log_dir=Path("logs"),
-            source_dir=Path("src") / "my_package",
+            test_dir=PROJECT_DIR / "tests",
+            log_dir=PROJECT_DIR / "logs",
+            source_dir=PROJECT_DIR / "src" / "my_package",
             log_keep=5,
         )
+
+    pytest_harness ends the process with SystemExit, so the call should be the
+    final operation in the runner script.
 
     Required arguments
     ------------------
     test_dir : Path
-        Directory containing the pytest test files to run.
+        Directory containing the pytest test files.
 
     log_dir : Path
-        Root directory where pytest_harness creates a time-stamped
-        output directory for the current run.
-
-        The run directory contains:
-            - the main summary log
-            - optional individual test-file logs
+        Directory where time-stamped pytest_harness run folders are created.
 
     source_dir : Path
         Source-code directory measured by coverage.
 
-        Example:
-            Path("src") / "my_package"
-
-        pytest_harness creates and manages its own temporary coverage
-        configuration. Coverage settings in pyproject.toml are not required.
-
     Test selection
     --------------
     include_list : list[str | Path] | None
-        Restrict the run to specified test files or directories.
-
-        Paths are resolved relative to test_dir unless absolute paths
-        are supplied.
-
-        If omitted, all discoverable test files under test_dir are considered.
+        Run only the specified files or directories.
 
     exclude_list : list[str | Path] | None
-        Exclude specified test files or directories from the run.
+        Exclude the specified files or directories.
+        Relative paths in either list are resolved from test_dir.
 
-        Paths are resolved relative to test_dir unless absolute paths
-        are supplied.
-
-    Logging
-    -------
+    Output
+    ------
     individual_logs : bool
-        Create a separate detailed log for each test file.
-
-        Default:
-            True
+        Create a detailed log for each test file. Default is True.
 
     log_keep : int | None
-        Number of recent time-stamped run directories to retain.
-
-        Use None to retain all run directories.
-
-        Default:
-            None
+        Number of recent run directories to retain. None retains all runs.
 
     console_wrap_width : int
-        Maximum width used for console output and the summary dashboard.
-
-        Default:
-            DEFAULT_WIDTH
+        Width used for console output and the summary dashboard.
 
     Coverage
     --------
     coverage_warning_threshold : float | None
-        Coverage percentage below which source files are marked with
-        a warning in the summary dashboard.
-
-        Use None to disable coverage warnings.
-
-        This setting does not change the process exit code.
-
-        Default:
-            DEFAULT_COVERAGE_WARNING_THRESHOLD
+        Mark source files below this coverage percentage in the dashboard.
+        This does not affect the exit code. None disables warnings.
 
     show_source_file_coverage : bool
-        Include the per-source-file coverage table in the summary dashboard.
+        Include per-source-file coverage in the dashboard. Default is True.
 
-        Default:
-            True
-
-    Test outcome display
-    --------------------
+    Test details
+    ------------
     show_skipped_and_xfailed : bool
-        Include detailed entries for Skipped and XFailed test functions.
+        Include detailed Skipped and XFailed entries. Failed, Error, and
+        XPassed entries are always shown.
 
-        Failed, Error, and XPassed test functions are always shown.
-
-        Default:
-            False
-
-    Debugging
-    ---------
     debug_pytest_harness : bool
-        Display additional internal diagnostic information, including the
-        exact test files selected for execution.
+        Display internal diagnostic details, including the exact selected files.
 
-        Intended for debugging pytest_harness itself rather than ordinary
-        project test runs.
-
-        Default:
-            False
-
-    Failure rules
+    Exit behavior
     -------------
-    The run exits with SystemExit(1) when any of the following occurs:
-        - one or more test functions Failed
-        - one or more test functions produced an Error
-        - one or more tests unexpectedly XPassed
-        - a test file was not processed successfully
-        - a test file collected no tests
+        - SystemExit(0) when the complete run succeeded
+        - SystemExit(1) when a test failed or unexpectedly passed, or when
+            a test file could not be processed or collected no tests.
+            Skipped and XFailed tests do not count as failed tests.
 
-    Skipped and XFailed tests do not cause the run to fail.
-
-    Notes
-    -----
-        - Each test file runs in its own subprocess.
-        - A crash or collection failure in one test file does not prevent
-          later test files from running.
-        - Coverage data from all successfully executed test files is combined.
-        - Temporary coverage files are removed after summary data is built.
-        - The function raises SystemExit rather than returning normally.
     """
-    results: list[TestFileRecord] = []
+    runner_results: list[TestFileRecord] = []
 
     args = _resolve_harness_args(
         test_dir=test_dir,
@@ -223,81 +161,41 @@ def pytest_harness(
         log_prefix="off",
     )
 
-    output_dir_path = log.output_dir_path
-    if output_dir_path is None:
-        raise RuntimeError(
-            "Logduo did not create an output directory."
-        )
-
-    relative_test_file_paths = _resolve_test_file_paths(
-        test_dir_path=args.test_dir,
-        include_list=args.include_list,
-        exclude_list=args.exclude_list,
-    )
-    test_file_count = len(relative_test_file_paths)
-    print(
-        f"Running {test_file_count} test files: ",
-        end="",
-        flush=True,
-    )
-
-    if debug_pytest_harness:
-        print("\nDEBUG: Exact test files pytest_harness will run:")
-        for index, relative_test_file_path in enumerate(relative_test_file_paths, start=1):
-            print(f"    {index:>2}. {relative_test_file_path}")
-        print(
-            f"DEBUG: Exact test-file count: "
-            f"{len(relative_test_file_paths)}\n"
-        )
-
-    # --- Temporary per-test-file coverage data ---
-    coverage_temp_dir = tempfile.TemporaryDirectory(
-        prefix="coverage_",
-        dir=output_dir_path,
-    )
-    coverage_dir_path = Path(coverage_temp_dir.name)
     try:
-        for relative_test_file_path in relative_test_file_paths:
-            print(".", end="", flush=True)
+        output_dir_path = log.output_dir_path
+        if output_dir_path is None:
+            raise RuntimeError("Logduo did not create an output directory.")
 
-            test_file_path = args.test_dir / relative_test_file_path
+        relative_test_file_paths = _resolve_test_file_paths(
+            test_dir_path=args.test_dir,
+            include_list=args.include_list,
+            exclude_list=args.exclude_list,
+        )
+        test_file_count = len(relative_test_file_paths)
+        print(
+            f"Running {test_file_count} test files: ",
+            end="",
+            flush=True,
+        )
 
-            if not test_file_path.exists():
-                raise RuntimeError(
-                    "Error in pytest_harness_runner.py\n"
-                    "Unrecognized test file:\n"
-                    f"    {relative_test_file_path}"
-                )
-
-            if not test_file_path.is_file():
-                raise RuntimeError(
-                    "Expected file but found something else:\n"
-                    f"    {test_file_path}"
-                )
-
-            try:
-                test_file_path.read_text(encoding="utf-8")
-            except OSError as e:
-                raise RuntimeError(
-                    "Unable to read test file:\n"
-                    f"    {test_file_path}\n"
-                    f"    {e}"
-                ) from e
-
-            # Keep generated logs flat while preserving nested test-file identity.
-            test_file_safe_stem = (
-                str(relative_test_file_path.with_suffix(""))
-                .replace("/", "__")
-                .replace("\\", "__")
+        if args.debug_pytest_harness:
+            print("\nDEBUG: Exact test files pytest_harness will run:")
+            for index, relative_test_file_path in enumerate(relative_test_file_paths, start=1):
+                print(f"    {index:>2}. {relative_test_file_path}")
+            print(
+                f"DEBUG: Exact test-file count: "
+                f"{len(relative_test_file_paths)}\n"
             )
 
-            test_file_log_path = output_dir_path / f"{test_file_safe_stem}.log"
-            coverage_data_file_path = (
-                coverage_dir_path / f".coverage.{test_file_safe_stem}"
+        with tempfile.TemporaryDirectory(
+            prefix="coverage_",
+            dir=output_dir_path,
+        ) as coverage_temp_dir_name:
+            coverage_dir_path = Path(coverage_temp_dir_name)
+            coverage_config_file_path = (
+                coverage_dir_path / "pytest_harness_coveragerc"
             )
 
-            # Create temporary coverage config file - do not rely on pyproject.toml
-            coverage_config_file_path = coverage_dir_path / "pytest_harness_coveragerc"
             coverage_config_file_path.write_text(
                 "[run]\n"
                 "branch = true\n"
@@ -314,57 +212,92 @@ def pytest_harness(
                 encoding="utf-8",
             )
 
-            result = _build_test_file_record(
-                test_file_path=test_file_path,
-                test_file_log_path=test_file_log_path,
+            for relative_test_file_path in relative_test_file_paths:
+                print(".", end="", flush=True)
+
+                test_file_path = args.test_dir / relative_test_file_path
+
+                if not test_file_path.exists():
+                    raise RuntimeError(
+                        "Error in pytest_harness_runner.py\n"
+                        "Unrecognized test file:\n"
+                        f"    {relative_test_file_path}"
+                    )
+
+                if not test_file_path.is_file():
+                    raise RuntimeError(
+                        "Expected file but found something else:\n"
+                        f"    {test_file_path}"
+                    )
+
+                try:
+                    test_file_path.read_text(encoding="utf-8")
+                except OSError as e:
+                    raise RuntimeError(
+                        "Unable to read test file:\n"
+                        f"    {test_file_path}\n"
+                        f"    {e}"
+                    ) from e
+
+                # Keep generated logs flat while preserving nested test-file identity.
+                test_file_safe_stem = (
+                    str(relative_test_file_path.with_suffix(""))
+                    .replace("/", "__")
+                    .replace("\\", "__")
+                )
+
+                test_file_log_path = output_dir_path / f"{test_file_safe_stem}.log"
+                coverage_data_file_path = (
+                    coverage_dir_path / f".coverage.{test_file_safe_stem}"
+                )
+
+                test_file_result = _build_test_file_record(
+                    test_file_path=test_file_path,
+                    test_file_log_path=test_file_log_path,
+                    source_dir=args.source_dir,
+                    coverage_data_file_path=coverage_data_file_path,
+                    # extra_pytest_args=["-q"],    # "-q" already called, extra_pytest_args[] reserved for future args
+                    coverage_config_file_path=coverage_config_file_path,
+                    individual_logs=args.individual_logs,
+                    debug_pytest_harness=args.debug_pytest_harness,
+                )
+
+                runner_results.append(test_file_result)
+
+            combined_coverage_result = _combine_coverage_data_files(
+                coverage_dir_path=coverage_dir_path,
                 source_dir=args.source_dir,
-                coverage_data_file_path=coverage_data_file_path,
-                # extra_pytest_args=["-q"],    # "-q" already called, extra_pytest_args[] reserved for future args
-                coverage_config_file_path=coverage_config_file_path,
-                individual_logs=individual_logs,
-                debug_pytest_harness=debug_pytest_harness,
             )
 
-            results.append(result)
+            print(" done", flush=True)
+            print()
 
+            summary_data = _build_summary_data(
+                pytest_test_file_records=runner_results,
+                combined_coverage_result=combined_coverage_result,
+                show_skipped_and_xfailed=args.show_skipped_and_xfailed,
+                debug_pytest_harness=args.debug_pytest_harness,
+            )
 
-        # Combine the separate per-test-file data files once.
-        combined_coverage_result = _combine_coverage_data_files(
-            coverage_dir_path=coverage_dir_path,
-            source_dir=args.source_dir,
-        )
+            summary_text = _build_summary_table(
+                summary_data=summary_data,
+                coverage_warning_threshold=args.coverage_warning_threshold,
+                show_skipped_and_xfailed=args.show_skipped_and_xfailed,
+                show_source_file_coverage=args.show_source_file_coverage,
+            )
+            log(summary_text)
 
-        print(" done", end="", flush=True)
-        print(" ")
-        print(" ")
-
-        summary_data = _build_summary_data(
-            pytest_test_file_records=results,
-            combined_coverage_result=combined_coverage_result,
-            show_skipped_and_xfailed=args.show_skipped_and_xfailed,
-            debug_pytest_harness=args.debug_pytest_harness,
-        )
-
-        summary_text = _build_summary_table(
-            summary_data=summary_data,
-            coverage_warning_threshold=args.coverage_warning_threshold,
-            show_skipped_and_xfailed=args.show_skipped_and_xfailed,
-            show_source_file_coverage=args.show_source_file_coverage,
-        )
-        log(summary_text)
-
-        run_failed = (
+            run_failed = (
                 summary_data.failed_test_function_count > 0
                 or summary_data.error_test_function_count > 0
                 or summary_data.xpassed_test_function_count > 0
                 or summary_data.not_processed_test_file_count > 0
                 or summary_data.no_tests_collected_test_file_count > 0
-        )
+            )
 
-        exit_code = 1 if run_failed else 0
+            exit_code = 1 if run_failed else 0
 
     finally:
-        coverage_temp_dir.cleanup()
         log.close()
 
     raise SystemExit(exit_code)

@@ -58,13 +58,24 @@ class _FakeTemporaryDirectory:
         Path(self.name).mkdir(parents=True)
         self.cleaned = False
 
+    def __enter__(self) -> str:
+        return self.name
+
+    def __exit__(
+        self,
+        exc_type: object,
+        exc_value: object,
+        traceback: object,
+    ) -> None:
+        self.cleanup()
+
     def cleanup(self) -> None:
         self.cleaned = True
 
 
-
 # === Tests ===================================================================
 
+# --- test_01_rejects_missing_required_input_directories() ---------------------
 @pytest.mark.parametrize(
     ("missing_name", "message"),
     [
@@ -105,6 +116,7 @@ def test_01_rejects_missing_required_input_directories(
         )
 
 
+# --- test_02_creates_missing_log_directory() ----------------------------------
 def test_02_creates_missing_log_directory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -172,12 +184,14 @@ def test_02_creates_missing_log_directory(
     assert log_dir.is_dir()
     assert fake_log.close_call_count == 1
 
+
+# --- test_03_orchestrates_test_run_and_builds_summary() -----------------------
 def test_03_orchestrates_test_run_and_builds_summary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # === Arrange: project directories ========================================
 
+    # --- Arrange: project directories ---
     test_dir = (tmp_path / "tests").resolve()
     log_dir = (tmp_path / "logs").resolve()
     source_dir = (tmp_path / "src").resolve()
@@ -207,7 +221,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
         encoding="utf-8",
     )
 
-    # === Arrange: fakes and captured calls ==================================
+    # --- Arrange: fakes and captured calls ---
 
     fake_log = _FakeLog(output_dir)
 
@@ -234,11 +248,15 @@ def test_03_orchestrates_test_run_and_builds_summary(
     )
 
     record_builder_calls: list[dict[str, Any]] = []
+    coverage_config_existence: list[bool] = []
 
     def fake_build_test_file_record(
         **kwargs: Any,
     ) -> TestFileRecord:
         record_builder_calls.append(kwargs)
+        coverage_config_existence.append(
+            kwargs["coverage_config_file_path"].exists()
+        )
         return _record(kwargs["test_file_path"])
 
     monkeypatch.setattr(
@@ -294,7 +312,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
         fake_build_summary_table,
     )
 
-    # === Act ================================================================
+
     _run_harness(
         test_dir=test_dir,
         log_dir=log_dir,
@@ -306,8 +324,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
         show_source_file_coverage=True,
     )
 
-    # === Assert: Logduo configuration =======================================
-
+    # --- Assert: Logduo configuration ---
     assert len(fake_log.configure_calls) == 1
 
     configure_args = fake_log.configure_calls[0]
@@ -321,8 +338,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
     assert configure_args["console_wrap_width"] == 150
     assert configure_args["log_prefix"] == "off"
 
-    # === Assert: each selected test file was run =============================
-
+    # --- Assert: each selected test file was run ---
     assert len(record_builder_calls) == 2
 
     first_call = record_builder_calls[0]
@@ -340,17 +356,19 @@ def test_03_orchestrates_test_run_and_builds_summary(
     for call in record_builder_calls:
         assert call["source_dir"] == source_dir
         assert call["individual_logs"] is True
-        assert call["coverage_config_file_path"].exists()
+        assert call["debug_pytest_harness"] is False
 
-    # === Assert: coverage was combined ======================================
+    # The config file existed while each test-file record was built.
+    assert coverage_config_existence == [True, True]
 
+    # --- Assert: coverage was combined ---
     assert captured_combine_args["coverage_dir_path"] == Path(
         fake_temp_dir.name
     )
     assert captured_combine_args["source_dir"] == source_dir
     assert fake_temp_dir.cleaned is True
 
-    # === Assert: aggregate summary was built ================================
+    # --- Assert: aggregate summary was built ---
 
     test_file_records = captured_summary_args[
         "pytest_test_file_records"
@@ -368,9 +386,16 @@ def test_03_orchestrates_test_run_and_builds_summary(
         captured_summary_args["combined_coverage_result"]
         is combined_result
     )
+    assert (
+        captured_summary_args["show_skipped_and_xfailed"]
+        is False
+    )
+    assert (
+        captured_summary_args["debug_pytest_harness"]
+        is False
+    )
 
-    # === Assert: reporting options reached the table builder =================
-
+    # --- Assert: reporting options reached the table builder ---
     assert captured_table_args["summary_data"] is summary_result
     assert (
         captured_table_args["coverage_warning_threshold"]
@@ -380,13 +405,18 @@ def test_03_orchestrates_test_run_and_builds_summary(
         captured_table_args["show_source_file_coverage"]
         is True
     )
+    assert (
+        captured_table_args["show_skipped_and_xfailed"]
+        is False
+    )
 
-    # === Assert: final summary was logged ===================================
-
+    # --- Assert: final summary and cleanup---
     assert fake_log.messages == ["SUMMARY TEXT"]
     assert fake_log.warnings == []
     assert fake_log.close_call_count == 1
 
+
+# --- test_04_rejects_selected_path_that_disappears_before_execution() ---------
 def test_04_rejects_selected_path_that_disappears_before_execution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -426,6 +456,7 @@ def test_04_rejects_selected_path_that_disappears_before_execution(
         )
 
 
+# --- test_05_passes_coverage_warning_threshold_to_summary_builder() -----------
 def test_05_passes_coverage_warning_threshold_to_summary_builder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -516,6 +547,7 @@ def test_05_passes_coverage_warning_threshold_to_summary_builder(
     assert fake_log.warnings == []
 
 
+# --- test_06_allows_coverage_warning_to_be_disabled() -------------------------
 def test_06_allows_coverage_warning_to_be_disabled(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -597,6 +629,7 @@ def test_06_allows_coverage_warning_to_be_disabled(
     )
 
 
+# --- test_07_passes_log_keep_to_logduo() --------------------------------------
 def test_07_passes_log_keep_to_logduo(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -665,6 +698,7 @@ def test_07_passes_log_keep_to_logduo(
     assert fake_log.configure_calls[0]["keep"] == 7
 
 
+# --- test_08_debug_mode_lists_selected_test_files() ---------------------------
 def test_08_debug_mode_lists_selected_test_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -737,6 +771,7 @@ def test_08_debug_mode_lists_selected_test_files(
     assert "DEBUG: Exact test-file count: 1" in output
 
 
+# ---  test_09_rejects_selected_path_that_is_not_a_file() ----------------------
 def test_09_rejects_selected_path_that_is_not_a_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -781,6 +816,7 @@ def test_09_rejects_selected_path_that_is_not_a_file(
         )
 
 
+# --- test_10_wraps_test_file_read_error() -------------------------------------
 def test_10_wraps_test_file_read_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -846,6 +882,8 @@ def test_10_wraps_test_file_read_error(
             source_dir=source_dir,
         )
 
+
+# --- test_11_exits_with_code_one_when_run_failed() ----------------------------
 def test_11_exits_with_code_one_when_run_failed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -917,7 +955,7 @@ def test_11_exits_with_code_one_when_run_failed(
     assert fake_log.close_call_count == 1
 
 
-# === Helpers =================================================================
+# === Internal helpers =========================================================
 
 def _empty_combined_result(
     total_coverage_pct: float = 100.0,
