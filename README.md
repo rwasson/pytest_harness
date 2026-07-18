@@ -409,3 +409,17 @@ Run:
     examples/basic_project/pytest_runner.py
 
 from an IDE to see the normal pytest_harness workflow.
+
+
+Unicode and Subprocess Output
+-----------------------------
+Each selected test file runs in a child Python process whose captured standard
+output is explicitly configured as UTF-8. pytest_harness also reads that captured output as UTF-8.
+
+This ensures that Unicode output from tests and libraries such as Rich is
+transported consistently across Windows, macOS, and Linux, including characters
+such as box-drawing symbols, accented text, and non-English text.
+
+This setting applies only to the captured text connection between the test
+subprocess and pytest_harness. It does not change operating-system path behavior,
+filesystem behavior, or other Windows-specific behavior being tested.

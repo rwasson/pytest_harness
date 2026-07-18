@@ -47,7 +47,7 @@ def _build_test_file_record(  # noqa: PLR0915
     extra_pytest_args: list[str] | None = None,
     coverage_config_file_path: Path | None = None,
     individual_logs: bool = True,
-    debug_pytest_harness: bool = False,    # noqa  # maybe unused, but reserved for future use
+    debug_pytest_harness: bool = False,
 ) -> TestFileRecord:
     """
     Dev-mode pytest runner using subprocess.
@@ -198,7 +198,9 @@ def _build_test_file_record(  # noqa: PLR0915
 
 
     try:
-        test_file_report = json.loads(test_file_report_path.read_text())
+        test_file_report = json.loads(
+            test_file_report_path.read_text(encoding="utf-8")
+        )
         summary = test_file_report["summary"]
         passed_test_function_count = summary.get("passed", 0)
         failed_test_function_count = summary.get("failed", 0)

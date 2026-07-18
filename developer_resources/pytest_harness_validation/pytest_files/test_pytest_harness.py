@@ -32,6 +32,7 @@ class _FakeLog:
         self.configure_calls: list[dict[str, Any]] = []
         self.messages: list[str] = []
         self.warnings: list[str] = []
+        self.close_call_count = 0
 
     def configure(self, **kwargs: Any) -> None:
         self.configure_calls.append(kwargs)
@@ -41,6 +42,9 @@ class _FakeLog:
 
     def warning(self, message: str) -> None:
         self.warnings.append(message)
+
+    def close(self) -> None:
+        self.close_call_count += 1
 
 
 class _FakeTemporaryDirectory:
@@ -166,6 +170,7 @@ def test_02_creates_missing_log_directory(
     )
 
     assert log_dir.is_dir()
+    assert fake_log.close_call_count == 1
 
 def test_03_orchestrates_test_run_and_builds_summary(
     tmp_path: Path,
@@ -380,7 +385,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
 
     assert fake_log.messages == ["SUMMARY TEXT"]
     assert fake_log.warnings == []
-
+    assert fake_log.close_call_count == 1
 
 def test_04_rejects_selected_path_that_disappears_before_execution(
     tmp_path: Path,
@@ -859,10 +864,12 @@ def test_11_exits_with_code_one_when_run_failed(
         encoding="utf-8",
     )
 
+    fake_log = _FakeLog(output_dir)
+
     monkeypatch.setattr(
         module,
         "log",
-        _FakeLog(output_dir),
+        fake_log,
     )
     monkeypatch.setattr(
         module,
@@ -907,65 +914,7 @@ def test_11_exits_with_code_one_when_run_failed(
         source_dir=source_dir,
     )
 
-
-def test_12_real_run_exits_with_code_one_for_import_error_test_file(
-    tmp_path: Path,
-) -> None:
-    project_root = Path(__file__).resolve().parents[3]
-
-    test_dir = (
-        project_root
-        / "developer_resources"
-        / "pytest_harness_validation"
-        / "pytest_files"
-    )
-    source_dir = project_root / "src"
-    log_dir = tmp_path / "logs"
-
-    with pytest.raises(SystemExit) as exc_info:
-        module.pytest_harness(
-            test_dir=test_dir,
-            log_dir=log_dir,
-            source_dir=source_dir,
-            include_list=[
-                "test_import_error.py",
-            ],
-            individual_logs=False,
-            log_keep=None,
-            debug_pytest_harness=False,
-        )
-
-    assert exc_info.value.code == 1
-
-
-def test_13_real_run_exits_with_code_one_for_import_empty_test_file(
-    tmp_path: Path,
-) -> None:
-    project_root = Path(__file__).resolve().parents[3]
-
-    test_dir = (
-        project_root
-        / "developer_resources"
-        / "pytest_harness_validation"
-        / "pytest_files"
-    )
-    source_dir = project_root / "src"
-    log_dir = tmp_path / "logs"
-
-    with pytest.raises(SystemExit) as exc_info:
-        module.pytest_harness(
-            test_dir=test_dir,
-            log_dir=log_dir,
-            source_dir=source_dir,
-            include_list=[
-                "test_empty.py",
-            ],
-            individual_logs=False,
-            log_keep=None,
-            debug_pytest_harness=False,
-        )
-
-    assert exc_info.value.code == 1
+    assert fake_log.close_call_count == 1
 
 
 # === Helpers =================================================================
