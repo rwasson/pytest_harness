@@ -19,7 +19,7 @@ include_list: list[str] | None = None
 # These two files are tested in test_pytest_harness.py
 # exclude_list: list[str] | None = None
 exclude_list = [
-    # "test_failed.py",
+    "test_failed.py",
     "test_import_error.py",
     "test_empty.py",
  ]
