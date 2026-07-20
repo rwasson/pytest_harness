@@ -254,6 +254,24 @@ def test_13_raises_when_exclusions_remove_everything(
             exclude_list=["test_only"],
         )
 
+'''
+# --- test_14_exclude_list_is_applied_after_include_list() ---------------------
+def test_14_exclude_list_is_applied_after_include_list(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "group" / "test_keep.py")
+    _write(tmp_path / "group" / "test_remove.py")
+    _write(tmp_path / "other" / "test_other.py")
+
+    result = _resolve_test_file_paths(
+        test_dir_path=tmp_path,
+        include_list=["group"],
+        exclude_list=["group/test_remove"],
+    )
+
+    assert result == [Path("group/test_keep.py")]
+
+'''
 
 # === Internal helpers ========================================================
 

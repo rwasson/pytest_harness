@@ -6,6 +6,8 @@ Last edited: 2026-07-16
 
 from __future__ import annotations
 
+import pytest
+
 import pytest_harness.summary_table_builder as module
 from pytest_harness.constants_and_classes import (
     AggregateTestSummary,
@@ -13,8 +15,9 @@ from pytest_harness.constants_and_classes import (
     SourceFileCoverageRecord,
 )
 
-# === Tests ===================================================================
+# === Tests ====================================================================
 
+# --- test_01_builds_main_summary_sections() -----------------------------------
 def test_01_builds_main_summary_sections() -> None:
     text = module._build_summary_table(
         summary_data=_summary(),
@@ -47,6 +50,7 @@ def test_01_builds_main_summary_sections() -> None:
     assert "74%" in text
 
 
+# --- test_02_includes_default_flagged_outcomes_and_test_names() ---------------
 def test_02_includes_default_flagged_outcomes_and_test_names(
 ) -> None:
 
@@ -89,6 +93,7 @@ def test_02_includes_default_flagged_outcomes_and_test_names(
     assert "test_xfailed" not in text
 
 
+# --- test_03_show_all_problems_includes_skipped_and_xfailed -------------------
 def test_03_show_all_problems_includes_skipped_and_xfailed(
 ) -> None:
 
@@ -120,6 +125,7 @@ def test_03_show_all_problems_includes_skipped_and_xfailed(
     assert "test_xfailed" in text
 
 
+# --- test_04_includes_special_test_file_categories() --------------------------
 def test_04_includes_special_test_file_categories() -> None:
     text = module._build_summary_table(
         summary_data=_summary(
@@ -141,6 +147,7 @@ def test_04_includes_special_test_file_categories() -> None:
     assert "test_empty.py" in text
 
 
+# --- test_05_displays_statement_coverage_table_by_source_file() ---------------
 def test_05_displays_statement_coverage_table_by_source_file() -> None:
     records = [
         _coverage_record(
@@ -176,6 +183,7 @@ def test_05_displays_statement_coverage_table_by_source_file() -> None:
     assert "empty_init.py" not in text
 
 
+# --- test_06_omits_optional_sections_when_empty() -----------------------------
 def test_06_omits_optional_sections_when_empty() -> None:
     text = module._build_summary_table(
         summary_data=_summary(),
@@ -201,6 +209,7 @@ def test_06_omits_optional_sections_when_empty() -> None:
     assert "Executed/" not in text
 
 
+# --- test_07_includes_warning_when_rounded_total_is_below_threshold() ---------
 def test_07_includes_warning_when_rounded_total_is_below_threshold() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 84.4
@@ -219,6 +228,7 @@ def test_07_includes_warning_when_rounded_total_is_below_threshold() -> None:
     )
 
 
+# --- test_08_omits_warning_when_rounded_values_are_equal() --------------------
 def test_08_omits_warning_when_rounded_values_are_equal() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 84.79
@@ -233,6 +243,7 @@ def test_08_omits_warning_when_rounded_values_are_equal() -> None:
     assert "WARNING:" not in text
 
 
+# --- test_09_omits_warning_when_threshold_is_disabled() -----------------------
 def test_09_omits_warning_when_threshold_is_disabled() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 10.0
@@ -247,6 +258,7 @@ def test_09_omits_warning_when_threshold_is_disabled() -> None:
     assert "WARNING:" not in text
 
 
+# --- test_10_uses_plural_file_label_for_multiple_flagged_files() --------------
 def test_10_uses_plural_file_label_for_multiple_flagged_files(
 ) -> None:
 
@@ -271,6 +283,48 @@ def test_10_uses_plural_file_label_for_multiple_flagged_files(
 
     assert "Flagged test functions by test file (in 2 test files):" in text
 
+
+# --- test_11_coverage_warning_can_be_disabled() -------------------------------
+@pytest.mark.parametrize(
+    "coverage_warning_threshold",
+    [
+        pytest.param(None, id="none"),
+        pytest.param(0, id="zero"),
+    ],
+)
+def test_11_coverage_warning_can_be_disabled(
+    coverage_warning_threshold: float | None,
+) -> None:
+    summary_data = _summary()
+    summary_data.total_coverage_pct = 10.0
+
+    text = module._build_summary_table(
+        summary_data=summary_data,
+        coverage_warning_threshold=coverage_warning_threshold,
+        show_source_file_coverage=False,
+        show_skipped_and_xfailed=False,
+    )
+
+    assert "WARNING:" not in text
+
+
+# --- test_12_coverage_warning_is_shown_below_threshold() ----------------------
+def test_12_coverage_warning_is_shown_below_threshold() -> None:
+    summary_data = _summary()
+    summary_data.total_coverage_pct = 10.0
+
+    text = module._build_summary_table(
+        summary_data=summary_data,
+        coverage_warning_threshold=85.0,
+        show_source_file_coverage=False,
+        show_skipped_and_xfailed=False,
+    )
+
+    assert (
+        "WARNING: Total coverage (10%) "
+        "is below recommended threshold 85%."
+        in text
+    )
 
 
 # === Internal helpers ========================================================
