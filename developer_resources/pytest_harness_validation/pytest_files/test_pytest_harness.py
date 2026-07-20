@@ -34,14 +34,35 @@ class _FakeLog:
         self.warnings: list[str] = []
         self.close_call_count = 0
 
+        self.session_config = SimpleNamespace(
+            console_theme_dict={
+                "title": "bold bright_cyan",
+                "header_label": "bright_cyan",
+                "header_value": "grey70",
+                "text": "white",
+                "muted": "grey58",
+                "divider": "cyan",
+                "pipe": "grey50",
+                "sink_tag": "bright_cyan",
+                "critical": "bold red",
+                "error": "bold red",
+                "warning": "bold yellow",
+                "success": "bold bright_green",
+                "info": "grey58",
+                "debug": "bold magenta",
+                "trace": "bold grey70",
+            }
+        )
+
     def configure(self, **kwargs: Any) -> None:
         self.configure_calls.append(kwargs)
 
-    def __call__(self, message: str) -> None:
-        self.messages.append(message)
+    def __call__(self, message: object) -> None:
+        # Rich Text converts to its plain-text representation with str().
+        self.messages.append(str(message))
 
-    def warning(self, message: str) -> None:
-        self.warnings.append(message)
+    def warning(self, message: object) -> None:
+        self.warnings.append(str(message))
 
     def close(self) -> None:
         self.close_call_count += 1
@@ -362,53 +383,27 @@ def test_03_orchestrates_test_run_and_builds_summary(
     assert coverage_config_existence == [True, True]
 
     # --- Assert: coverage was combined ---
-    assert captured_combine_args["coverage_dir_path"] == Path(
-        fake_temp_dir.name
-    )
+    assert captured_combine_args["coverage_dir_path"] == Path(fake_temp_dir.name)
     assert captured_combine_args["source_dir"] == source_dir
     assert fake_temp_dir.cleaned is True
 
     # --- Assert: aggregate summary was built ---
-
-    test_file_records = captured_summary_args[
-        "pytest_test_file_records"
-    ]
+    test_file_records = captured_summary_args["pytest_test_file_records"]
 
     assert len(test_file_records) == 2
-    assert test_file_records[0].test_file_path == str(
-        first_test_file
-    )
-    assert test_file_records[1].test_file_path == str(
-        second_test_file
-    )
+    assert test_file_records[0].test_file_path == str(first_test_file)
+    assert test_file_records[1].test_file_path == str(second_test_file)
 
-    assert (
-        captured_summary_args["combined_coverage_result"]
-        is combined_result
-    )
-    assert (
-        captured_summary_args["show_skipped_and_xfailed"]
-        is False
-    )
-    assert (
-        captured_summary_args["debug_pytest_harness"]
-        is False
-    )
+    assert (captured_summary_args["combined_coverage_result"] is combined_result)
+    assert (captured_summary_args["show_skipped_and_xfailed"] is False)
+    assert (captured_summary_args["debug_pytest_harness"] is False)
 
     # --- Assert: reporting options reached the table builder ---
     assert captured_table_args["summary_data"] is summary_result
-    assert (
-        captured_table_args["coverage_warning_threshold"]
-        == 85.0
-    )
-    assert (
-        captured_table_args["show_source_file_coverage"]
-        is True
-    )
-    assert (
-        captured_table_args["show_skipped_and_xfailed"]
-        is False
-    )
+    assert (captured_table_args["coverage_warning_threshold"] == 85.0)
+    assert (captured_table_args["show_source_file_coverage"] is True)
+    assert (captured_table_args["show_skipped_and_xfailed"] is False)
+    assert (captured_table_args["theme"] is fake_log.session_config.console_theme_dict)
 
     # --- Assert: final summary and cleanup---
     assert fake_log.messages == ["SUMMARY TEXT"]

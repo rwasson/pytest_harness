@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from logduo import log
+from rich.text import Text
 
 from pytest_harness.arg_resolver import _resolve_harness_args
 from pytest_harness.constants_and_classes import (
@@ -158,6 +159,7 @@ def pytest_harness(
         console_wrap_width=args.console_wrap_width,
         log_prefix="off",
     )
+    theme = log.session_config.console_theme_dict
 
     try:
         output_dir_path = log.output_dir_path
@@ -282,8 +284,10 @@ def pytest_harness(
                 coverage_warning_threshold=args.coverage_warning_threshold,
                 show_skipped_and_xfailed=args.show_skipped_and_xfailed,
                 show_source_file_coverage=args.show_source_file_coverage,
+                theme=theme,
             )
-            log(summary_text)
+
+            log(Text.from_markup(summary_text))
 
             run_failed = (
                 summary_data.failed_test_function_count > 0

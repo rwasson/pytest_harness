@@ -7,6 +7,7 @@ Last edited: 2026-07-16
 from __future__ import annotations
 
 import pytest
+from rich.text import Text
 
 import pytest_harness.summary_table_builder as module
 from pytest_harness.constants_and_classes import (
@@ -15,11 +16,31 @@ from pytest_harness.constants_and_classes import (
     SourceFileCoverageRecord,
 )
 
+_TEST_THEME: dict[str, str] = {
+    "title": "bold bright_blue",
+    "header_label": "bright_blue",
+    "header_value": "grey37",
+    "text": "black",
+    "muted": "grey39",
+    "divider": "blue3",
+    "pipe": "grey70",
+    "sink_tag": "bright_blue",
+    "critical": "bold red3",
+    "error": "red3",
+    "warning": "bold gold3",
+    "success": "green",
+    "info": "grey39",
+    "debug": "bold magenta",
+    "trace": "grey39",
+}
+
+
+
 # === Tests ====================================================================
 
 # --- test_01_builds_main_summary_sections() -----------------------------------
 def test_01_builds_main_summary_sections() -> None:
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(),
         coverage_warning_threshold=None,
         show_source_file_coverage=False,
@@ -64,7 +85,7 @@ def test_02_includes_default_flagged_outcomes_and_test_names(
         xpassed_test_function_names=["test_xpassed"],
     )
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(
             problems=[problem]
         ),
@@ -107,7 +128,7 @@ def test_03_show_all_problems_includes_skipped_and_xfailed(
         xpassed_test_function_names=[],
     )
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(
             problems=[problem]
         ),
@@ -127,7 +148,7 @@ def test_03_show_all_problems_includes_skipped_and_xfailed(
 
 # --- test_04_includes_special_test_file_categories() --------------------------
 def test_04_includes_special_test_file_categories() -> None:
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(
             not_processed=[
                 "test_collection_problem.py"
@@ -162,7 +183,7 @@ def test_05_displays_statement_coverage_table_by_source_file() -> None:
         ),
     ]
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(
             coverage_records=records
         ),
@@ -185,7 +206,7 @@ def test_05_displays_statement_coverage_table_by_source_file() -> None:
 
 # --- test_06_omits_optional_sections_when_empty() -----------------------------
 def test_06_omits_optional_sections_when_empty() -> None:
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(),
         coverage_warning_threshold=None,
         show_source_file_coverage=False,
@@ -214,7 +235,7 @@ def test_07_includes_warning_when_rounded_total_is_below_threshold() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 84.4
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=summary_data,
         coverage_warning_threshold=85.0,
         show_source_file_coverage=False,
@@ -233,7 +254,7 @@ def test_08_omits_warning_when_rounded_values_are_equal() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 84.79
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=summary_data,
         coverage_warning_threshold=85.0,
         show_source_file_coverage=False,
@@ -248,7 +269,7 @@ def test_09_omits_warning_when_threshold_is_disabled() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 10.0
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=summary_data,
         coverage_warning_threshold=None,
         show_source_file_coverage=False,
@@ -272,7 +293,7 @@ def test_10_uses_plural_file_label_for_multiple_flagged_files(
         failed=["test_second_failure"],
     )
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=_summary(
             problems=[first, second]
         ),
@@ -298,7 +319,7 @@ def test_11_coverage_warning_can_be_disabled(
     summary_data = _summary()
     summary_data.total_coverage_pct = 10.0
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=summary_data,
         coverage_warning_threshold=coverage_warning_threshold,
         show_source_file_coverage=False,
@@ -313,7 +334,7 @@ def test_12_coverage_warning_is_shown_below_threshold() -> None:
     summary_data = _summary()
     summary_data.total_coverage_pct = 10.0
 
-    text = module._build_summary_table(
+    text = _build_plain_summary(
         summary_data=summary_data,
         coverage_warning_threshold=85.0,
         show_source_file_coverage=False,
@@ -411,3 +432,22 @@ def _summary(
             coverage_records or []
         ),
     )
+
+def _build_plain_summary(
+    *,
+    summary_data: AggregateTestSummary,
+    coverage_warning_threshold: float | None,
+    show_source_file_coverage: bool,
+    show_skipped_and_xfailed: bool,
+) -> str:
+
+    markup = module._build_summary_table(
+        summary_data=summary_data,
+        coverage_warning_threshold=coverage_warning_threshold,
+        show_source_file_coverage=show_source_file_coverage,
+        show_skipped_and_xfailed=show_skipped_and_xfailed,
+        theme=_TEST_THEME,
+
+    )
+
+    return Text.from_markup(markup).plain

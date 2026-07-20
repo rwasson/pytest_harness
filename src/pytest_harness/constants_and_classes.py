@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+_ROUND_DIGIT = 0
+_DIVIDER_WIDTH = 60
+
 MIN_CONSOLE_WRAP_WIDTH = 80
 MIN_COVERAGE_WARNING_THRESHOLD = 0.0
 MAX_COVERAGE_WARNING_THRESHOLD = 100.0

@@ -19,10 +19,10 @@ include_list: list[str] | None = None
 # These two files are tested in test_pytest_harness.py
 # exclude_list: list[str] | None = None
 exclude_list = [
-    "test_failed.py",
+    "test_flagged.py",
     "test_import_error.py",
     "test_empty.py",
- ]
+]
 
 
 
@@ -61,7 +61,8 @@ def main() -> None:
         individual_logs=INDIVIDUAL_LOGS,
         log_keep=3,
         debug_pytest_harness=False,
-        console_wrap_width=100
+        console_wrap_width=80,
+        # show_skipped_and_xfailed=True,
     )
 
 

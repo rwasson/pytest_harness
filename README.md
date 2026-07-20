@@ -12,18 +12,23 @@ Why use pytest_harness?
 - no command-line flags, pyproject.toml coverage settings, or log setup required 
     (pytest_harness handles settings)
 - all test files run even if one test file crashes
-- compact dashboard and runner log for the complete run:
+- compact color-coded dashboard and plain-text log for the complete run:
     - summary results 
     - list of files with import/test collection errors
     - combined coverage
     - (optional) coverage for each source file
     - list of paths of created log files
     - exit code
-- optional per-test-file logs:
-    - test results
-    - user-generated print() statements (verifies tests are exercising the code as intended)  
-    - missing (uncovered) source lines
-- detailed docstring available with help(pytest_harness)
+- optional per-test-file logs containing results and user-generated print() statements
+    - provides visual inspection of output
+    - helps verify tests are exercising cthe ode as intended  
+    - displays missing (uncovered) source lines
+- detailed docstring with argument list:  
+
+        from pytest_harness import pytest_harness
+
+        help(pytest_harness)
+
 
 pytest_harness is a workflow tool, not a pytest plugin.
 
@@ -114,10 +119,12 @@ individual log.
 
 Example Dashboard 
 -----------------
-* Note: Created using `console_wrap_width = 100` to better fit this document
+- Console output is color-coded using the active Logduo theme. 
+- The summary log contains the same dashboard as plain text.
+- The list of created log files was truncated for display purposes.
 
         logging started:  2026-07-19 12:25:55
-        running script :  pytest_harness_runner.py
+        running script :  pytest_runner.py
         pruned run directories: 1 (keep=3)  
         
         Running 9 test files: ......... done
@@ -174,8 +181,8 @@ Example Dashboard
         100%      3/3         __init__.py
         ───────────────────────────────────────────────────────
         logging ended   :  2026-07-19 12:25:59 (duration 04 sec)
-        script path     :  project_root/dev/pytest_harness_validation/pytest_harness_runner.py
-        output directory:  project_root/logs/pytest_harness_runner/run_2026_07_19__12_25_55/
+        script path     :  project_root/tests/pytest_runner.py
+        output directory:  project_root/logs/pytest_runner/run_2026_07_19__12_25_55/
 
         files created this logging session in output directory:
             pytest_harness_runner.log
@@ -202,11 +209,11 @@ The run exits with code 1 when any of the following occurs:
 
 Note:
 - Skipped and XFailed outcomes do not by themselves cause exit code 1.
-- They also do not trigger tests being listed under `Flagged test functions by 
-test file` unless `show_skipped_and_xfailed=True` (default = False)
+- They also do not trigger tests being listed under `Flagged test functions` 
+  unless `show_skipped_and_xfailed=True` (default = False)
 
 
-Arguments:
+Arguments
 ---------
 
 ### `test_dir`
@@ -261,7 +268,7 @@ Default: True
 ### `show_skipped_and_xfailed`
 
 Optional. If True, Skipped and XFailed outcomes are included in the
-    flagged-test section along with Failed, Error, and XPassed outcomes.
+flagged-test section along with Failed, Error, and XPassed outcomes.
 
 Default: False
 
@@ -286,6 +293,21 @@ including the exact selected test files and official combined Coverage.py
 line counts.
 
 Default: False
+
+
+Logduo Settings
+---------------
+Pytest Harness uses the active Logduo console theme. 
+For IDE consoles with a light background, set:
+
+    [tool.logduo]
+    console_theme = "light"
+
+For information on other Logduo settings:
+
+    from logduo import log
+    
+    help(log.configure)
 
 
 Examples

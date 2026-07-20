@@ -45,7 +45,7 @@ dependencies = [
   "pytest-cov>=5.0.0",
   "pytest-json-report",
   "pytest-rerunfailures>=16,<17",
-  "logduo>=0.1.4",
+  "logduo>=0.1.5",
 ]
 
 [project.urls]
@@ -78,8 +78,8 @@ where = ["src"]
 
 # --- logduo -------------------------------------------------------------------
 [tool.logduo]
-console_verbosity = 3
-log_verbosity = 3
+console_theme = "light"
+
 
 
 # --- mypy ---------------------------------------------------------------------

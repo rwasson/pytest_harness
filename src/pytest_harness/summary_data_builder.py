@@ -369,3 +369,5 @@ def _combine_coverage_data_files(
         branch_coverage_pct=branch_coverage_pct,
         total_coverage_pct=total_coverage_pct,
     )
+
+
