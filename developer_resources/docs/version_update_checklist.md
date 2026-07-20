@@ -1,19 +1,24 @@
-LOGDUO UPDATE CHECKLIST
-=======================
-minor updates on GitHub:
+PYTEST_HARNESS UPDATE CHECKLIST
+===============================
 
-STAMP=$(date +%Y-%m-%d_%H-%M)
-git status --short --untracked-files=all
-git add .
-git diff --cached --stat
-git commit -m "Update $STAMP"
-git push origin main
-git status
+Minor updates on GitHub
+-----------------------
+Run:
+
+    STAMP=$(date +%Y-%m-%d_%H-%M)
+
+    git status --short --untracked-files=all
+    git add .
+    git diff --cached --stat
+    git commit -m "Update $STAMP"
+    git push origin main
+    git status
 
 
 1. Final validation
 -------------------
 Run:
+
     example_scripts_runner.py
     linter_runner.py
     pytest_harness_runner.py
@@ -23,6 +28,7 @@ Confirm:
 - Ruff, mypy, and Vulture pass
 - console and log output look correct
 - documentation and examples are current
+- the installed Logduo version satisfies the required minimum
 
 
 2. Update version
@@ -30,6 +36,10 @@ Confirm:
 Update pyproject.toml:
 
     version = "X.Y.Z"
+
+Confirm the Logduo dependency is current:
+
+    "logduo>=0.1.4",
 
 PyPI versions cannot be replaced after publication.
 
@@ -39,18 +49,20 @@ PyPI versions cannot be replaced after publication.
 Run:
 
     VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+
+    echo "$VERSION"
     git status --short --untracked-files=all
     git add .
     git diff --cached --stat
     git commit -m "Release $VERSION"
     git push origin main
     git status
-    echo "$VERSION"
 
 Confirm:
-- working tree is clean
+- the displayed version is correct
+- the working tree is clean
 - GitHub Actions passes on Ubuntu, Windows, and macOS
-- Do not publish until all required GitHub Actions jobs pass.
+- do not publish until all required GitHub Actions jobs pass
 
 
 4. Build distributions
@@ -59,32 +71,43 @@ Run:
 
     rm -rf build dist
     find . -maxdepth 2 -type d -name "*.egg-info" -exec rm -rf {} +
+
     python -m build
     python -m twine check --strict dist/*
-    python -m zipfile -l dist/logduo-*.whl
-    
+    python -m zipfile -l dist/pytest_harness-*.whl
+    tar -tzf dist/pytest_harness-*.tar.gz
 
 Confirm the wheel contains:
-- Logduo package files
+- the pytest_harness package files
 - py.typed
-- README and examples
-- required package data
-- package metadata
+- required package metadata
+
+Confirm the source distribution contains:
+- README.md
+- LICENSE
+- pyproject.toml
+- source package files
+- intended examples and supporting files
 
 
 5. Test the local wheel
 -----------------------
-Install the wheel in a clean virtual environment
-- Delete logduo from temp_project then reinstall using:
+In the temp project's activated virtual environment, run:
 
-    python -m pip uninstall -y logduo
-    python -m pip install "/Users/renyawasson/Local/PycharmProjects_local/logduo_project/dist/"logduo-*.whl
+    python -m pip uninstall -y pytest-harness
+
+    python -m pip install --no-deps --force-reinstall \
+      "/Users/renyawasson/Local/PycharmProjects_local/pytest_harness_project/dist/"pytest_harness-*.whl
+
+    python -c "from importlib.metadata import version; print('pytest-harness:', version('pytest-harness'))"
+    python -c "from importlib.metadata import version; print('logduo:', version('logduo'))"
 
 Confirm:
+- the pytest_harness version is correct
+- the required Logduo version is installed
 - import works
-- package version is correct
-- basic logging works
-- documentation export works
+- the basic test runner works
+- logs and dashboard output look correct
 - no development-project files are required
 
 
@@ -96,33 +119,49 @@ Run:
 
 Use:
 - username: __token__
-- password: Logduo's PyPI API token 
+- password: pytest-harness's PyPI API token
 
 The token will not be displayed while typing or pasting it.
 
 Confirm on PyPI:
-- correct version appears
-- README renders correctly
-- wheel and source distribution are present
-- metadata is correct
+- the correct version appears
+- the README renders correctly
+- the wheel and source distribution are present
+- metadata and dependencies are correct
 
 
 7. Test the published package
 -----------------------------
-In a clean environment:
+In the temp project's activated virtual environment, run:
 
-    python -m pip install --upgrade logduo
-    python -m pip show logduo
+    VERSION=$(python -c 'import tomllib; print(tomllib.load(open("/Users/renyawasson/Local/PycharmProjects_local/pytest_harness_project/pyproject.toml", "rb"))["project"]["version"])')
 
-Run a basic logging test.
+    python -m pip uninstall -y pytest-harness
+    python -m pip install --no-cache-dir "pytest-harness==$VERSION"
+
+    python -m pip show pytest-harness
+    python -c "from importlib.metadata import version; print('pytest-harness:', version('pytest-harness'))"
+    python -c "from importlib.metadata import version; print('logduo:', version('logduo'))"
+
+Run the basic test runner and confirm the published package works correctly.
 
 
 8. Tag the release
 ------------------
-Run:
+From the pytest_harness project root, run:
 
-    git tag vX.Y.Z
-    git push origin vX.Y.Z
+    VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+    TAG="v$VERSION"
+
+    echo "Preparing to create tag: $TAG"
+
+    if git rev-parse "$TAG" >/dev/null 2>&1; then
+        echo "Tag $TAG already exists."
+        exit 1
+    fi
+
+    git tag "$TAG"
+    git push origin "$TAG"
+
 
 Confirm the tag appears on GitHub.
-
