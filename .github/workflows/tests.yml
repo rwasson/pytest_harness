@@ -59,7 +59,7 @@ jobs:
         run: >
           python
           developer_resources/pytest_harness_validation/pytest_harness_validation_runner.py
-        continue-on-error: true
+        # continue-on-error: true   # should crash when returne exit code = 1
 
       - name: Run basic example project
         run: python examples/basic_project/pytest_runner.py
