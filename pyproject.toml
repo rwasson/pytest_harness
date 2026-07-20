@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytest_harness"
 readme = "README.md"
-version = "0.1.4"
+version = "0.1.5"
 authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
 description = "An IDE-friendly pytest workflow runner with coverage, a console dashboard and summary log, and optional detailed per-test-file logs."
 license = "MIT"
@@ -45,7 +45,7 @@ dependencies = [
   "pytest-cov>=5.0.0",
   "pytest-json-report",
   "pytest-rerunfailures>=16,<17",
-  "logduo>=0.1.5",
+  "logduo>=0.1.4",
 ]
 
 [project.urls]
