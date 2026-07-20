@@ -135,10 +135,10 @@ Confirm on PyPI:
 In the temp project's activated virtual environment, run:
 
     VERSION=$(python -c 'import tomllib; print(tomllib.load(open("/Users/renyawasson/Local/PycharmProjects_local/pytest_harness_project/pyproject.toml", "rb"))["project"]["version"])')
+    echo "Installing pytest-harness==$VERSION"
 
     python -m pip uninstall -y pytest-harness
     python -m pip install --no-cache-dir "pytest-harness==$VERSION"
-
     python -m pip show pytest-harness
     python -c "from importlib.metadata import version; print('pytest-harness:', version('pytest-harness'))"
     python -c "from importlib.metadata import version; print('logduo:', version('logduo'))"

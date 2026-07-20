@@ -148,7 +148,7 @@ Example Dashboard
             Skipped:    0
             XFailed:    0
         
-        Flagged test functions by test file (in 1 test file):
+        Flagged test functions (in 1 test file):
             test_pytest_harness.py
                 Failed (1):
                     test_12_intentional_fail

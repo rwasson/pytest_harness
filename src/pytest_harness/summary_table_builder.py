@@ -198,7 +198,7 @@ def _build_test_function_problem_lines(
     lines = [
         "",
         (
-            "Flagged test functions by test file "
+            "Flagged test functions "
             f"(in {problem_file_count} test {file_word}):"
         ),
     ]

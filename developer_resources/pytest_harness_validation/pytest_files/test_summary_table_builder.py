@@ -73,7 +73,7 @@ def test_02_includes_default_flagged_outcomes_and_test_names(
         show_skipped_and_xfailed=False,
     )
 
-    assert "Flagged test functions by test file" in text
+    assert "Flagged test functions" in text
 
     assert "test_mixed.py" in text
 
@@ -116,7 +116,7 @@ def test_03_show_all_problems_includes_skipped_and_xfailed(
         show_skipped_and_xfailed=True,
     )
 
-    assert "Flagged test functions by test file" in text
+    assert "Flagged test functions" in text
 
     assert "Skipped (1):" in text
     assert "test_skipped" in text
@@ -202,7 +202,7 @@ def test_06_omits_optional_sections_when_empty() -> None:
         not in text
     )
     assert (
-        "Flagged test functions by test file"
+        "Flagged test functions"
         not in text
     )
 
@@ -281,7 +281,7 @@ def test_10_uses_plural_file_label_for_multiple_flagged_files(
         show_skipped_and_xfailed=False,
     )
 
-    assert "Flagged test functions by test file (in 2 test files):" in text
+    assert "Flagged test functions (in 2 test files):" in text
 
 
 # --- test_11_coverage_warning_can_be_disabled() -------------------------------
