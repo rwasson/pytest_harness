@@ -119,7 +119,7 @@ H. Verify the version stored on GitHub
 
     git show origin/main:pyproject.toml | python -c 'import sys, tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])'
 
-Expected:
+Expect new version number:
 
     X.Y.Z
 
@@ -141,7 +141,8 @@ I. Create and push the Git tag
         exit 1
     fi
 
-4. Create and push the tag:
+
+4. Create and push the tag (if step 3 returns silently):
 
     git tag "$TAG"
     git push origin "$TAG"
@@ -185,6 +186,53 @@ Confirm that GitHub Actions runs:
 
 Do not publish to PyPI until all required GitHub Actions jobs pass.
 
+
+L. If GitHub Actions fails before PyPI publication
+--------------------------------------------------
+1. Correct the source files, tests, or workflow configuration locally.
+
+2. Stage, commit, and push all corrections:
+
+    git status --short --untracked-files=all
+    git add .
+    git diff --cached --stat
+    git commit -m "Fix release workflow for $VERSION"
+    git push origin main
+
+3. Check whether the release tag already exists:
+
+    git tag --list "$TAG"
+    git ls-remote --tags origin "refs/tags/$TAG"
+
+4. If the tag does not exist, create and push it:
+
+    git tag "$TAG"
+    git push origin "$TAG"
+
+5. If the tag already exists and this version has not been published to PyPI,
+   delete and recreate the tag so it points to the corrected commit:
+
+    git tag -d "$TAG"
+    git push origin --delete "$TAG"
+    git tag "$TAG"
+    git push origin "$TAG"
+
+6. Confirm the tag points to the current corrected commit:
+
+    git rev-parse HEAD
+    git rev-parse "$TAG"
+
+   The two commit hashes should match.
+
+7. Confirm GitHub Actions passes before creating or publishing the GitHub
+
+
+Release and before proceeding to PyPI.
+If a GitHub Release was already created for the old tag, delete that draft or
+release and create it again after the corrected tag has been pushed.
+
+Do not reuse or move a tag after that version has been published to PyPI.
+After PyPI publication, corrections require a new package version.
 
 
 III. PyPI release

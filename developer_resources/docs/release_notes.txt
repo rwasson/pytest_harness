@@ -1,0 +1,12 @@
+pytest_harness 0.1.6  2026-08-04
+
+This release improves installation reliability, configuration, and documentation.
+
+Changes
+
+* added console_theme support with "dark" and "light" options
+* improved imports for standard src/<package> project layouts
+* removed the need for example-project sys.path or conftest.py path modifications
+* strengthened handling of conflicting pytest plugin settings
+* updated validation, examples, README, and release documentation
+* updated the Logduo requirement to logduo>=0.1.5
