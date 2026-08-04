@@ -53,12 +53,15 @@ jobs:
       - name: Run pytest_harness validation suite
         run: python developer_resources/pytest_harness_validation/pytest_harness_validation_runner.py
 
+      - name: Run basic example project
+        run: python developer_resources/pytest_harness_validation/pytest_harness_ci_validation_runner.py
+
       - name: Run Ruff, mypy, and Vulture
         run: python developer_resources/pytest_harness_validation/linter_runner.py
 
       - name: Upload pytest_harness validation logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7    # may need to update number periodically
         with:
           name: pytest-harness-validation-logs-${{ runner.os }}
           path: developer_resources/pytest_harness_validation/logs/

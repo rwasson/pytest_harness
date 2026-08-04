@@ -125,7 +125,12 @@ def test_import_environment() -> None:
         individual_logs=False,
     )
 
-    assert record.exit_code == 0
+    assert record.exit_code == 0, (
+        "Nested pytest subprocess failed.\n\n"
+        f"Exit code: {record.exit_code}\n"
+        f"Status: {record.status}\n"
+        f"Error:\n{record.file_error_message}"
+    )
     assert record.passed_test_function_count == 1
     assert record.failed_test_function_count == 0
     assert record.error_test_function_count == 0

@@ -89,6 +89,8 @@ def _build_test_file_record(  # noqa: PLR0915
     ) as temp_file:
         test_file_report_path = Path(temp_file.name)
 
+    tested_code_parent = tested_code_dir.parent.as_posix()  # Windows safe
+
     pytest_cmd = [
         sys.executable,
 
@@ -113,7 +115,7 @@ def _build_test_file_record(  # noqa: PLR0915
         # Tests import starting with the name of tested_code_dir.
         # This override applies only to this pytest subprocess.
         "-o",
-        f"pythonpath={tested_code_dir.parent}",
+        f"pythonpath={tested_code_parent}",
 
         # --- Output ---
         "-q",  # quieter pytest output
