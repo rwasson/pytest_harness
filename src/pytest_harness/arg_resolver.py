@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from rich.console import Console
+from rich.text import Text
+
 from pytest_harness.constants_and_classes import (
     MAX_COVERAGE_WARNING_THRESHOLD,
     MIN_CONSOLE_WRAP_WIDTH,
@@ -20,15 +23,16 @@ from pytest_harness.constants_and_classes import (
 
 def _resolve_harness_args(
     *,
-    test_dir: Path,
+    test_file_dir: Path,
     log_dir: Path,
-    source_dir: Path,
+    tested_code_dir: Path,
     include_list: list[str | Path] | None = None,
     exclude_list: list[str | Path] | None = None,
     coverage_warning_threshold: float | None,
     individual_logs: bool = True,
     show_source_file_coverage: bool = True,
     log_keep: int | None,
+    console_theme: str = "dark",
     console_wrap_width: int,
     show_skipped_and_xfailed: bool = False,
     debug_pytest_harness: bool = False,
@@ -38,9 +42,9 @@ def _resolve_harness_args(
     """
 
     # Validate argument types before using Path methods.
-    test_dir_path = _require_path(test_dir, name="test_dir").resolve()
+    test_file_dir_path = _require_path(test_file_dir, name="test_file_dir").resolve()
     log_dir_path = _require_path(log_dir, name="log_dir").resolve()
-    source_dir_path = _require_path(source_dir, name="source_dir").resolve()
+    tested_code_dir_path = _require_path(tested_code_dir, name="tested_code_dir").resolve()
 
     validated_include_list = _validate_selector_list(
         include_list,
@@ -75,16 +79,17 @@ def _resolve_harness_args(
     )
 
     validated_log_keep = _validate_log_keep(log_keep)
+    validated_console_theme = _validate_console_theme(console_theme)
     validated_console_wrap_width = _validate_console_wrap_width(console_wrap_width)
 
 
     # Validate required input directories.
     _require_existing_directory(
-        test_dir_path,
+        test_file_dir_path,
         name="Test directory",
     )
     _require_existing_directory(
-        source_dir_path,
+        tested_code_dir_path,
         name="Source directory",
     )
 
@@ -112,22 +117,17 @@ def _resolve_harness_args(
         )
 
 
-
-
     return ValidatedHarnessArgs(
-        test_dir=test_dir_path,
+        test_file_dir=test_file_dir_path,
         log_dir=log_dir_path,
-        source_dir=source_dir_path,
+        tested_code_dir=tested_code_dir_path,
         include_list=validated_include_list,
         exclude_list=validated_exclude_list,
-        coverage_warning_threshold=(
-            validated_coverage_warning_threshold
-        ),
+        coverage_warning_threshold=validated_coverage_warning_threshold,
         individual_logs=validated_individual_logs,
-        show_source_file_coverage=(
-            validated_show_source_file_coverage
-        ),
+        show_source_file_coverage=validated_show_source_file_coverage,
         log_keep=validated_log_keep,
+        console_theme=validated_console_theme,
         console_wrap_width=validated_console_wrap_width,
         show_skipped_and_xfailed=validated_show_skipped_and_xfailed,
         debug_pytest_harness=validated_debug_pytest_harness,
@@ -262,6 +262,30 @@ def _validate_log_keep(
         )
 
     return value
+
+
+def _validate_console_theme(
+    value: str,
+) -> str:
+
+    if not isinstance(value, str):
+        raise TypeError('console_theme must be "dark" or "light".')
+
+    value_lower = value.lower()
+
+    if value_lower not in {"dark", "light"}:
+        _PRECONFIG_CONSOLE = Console(force_terminal=True)
+        warning_text = Text()
+        warning_text.append("WARNING:", style="bold yellow")
+        warning_text.append(
+            ' console_theme must be either "dark" or "light" (default ="dark").'
+        )
+
+        _PRECONFIG_CONSOLE.print(warning_text)
+
+        value_lower = "dark"
+
+    return value_lower
 
 
 def _validate_console_wrap_width(

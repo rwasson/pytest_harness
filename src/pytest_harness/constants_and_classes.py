@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 
 _ROUND_DIGIT = 0
-_DIVIDER_WIDTH = 60
+_DIVIDER_WIDTH = 37
 
 MIN_CONSOLE_WRAP_WIDTH = 80
 MIN_COVERAGE_WARNING_THRESHOLD = 0.0
@@ -21,15 +21,16 @@ DEFAULT_WIDTH = 150
 
 @dataclass(frozen=True, slots=True)
 class ValidatedHarnessArgs:
-    test_dir: Path
+    test_file_dir: Path
     log_dir: Path
-    source_dir: Path
+    tested_code_dir: Path
     include_list: list[str | Path] | None
     exclude_list: list[str | Path] | None
     individual_logs: bool
     coverage_warning_threshold: float | None
     show_source_file_coverage: bool
     log_keep: int | None
+    console_theme: str
     console_wrap_width: int
     show_skipped_and_xfailed: bool
     debug_pytest_harness: bool

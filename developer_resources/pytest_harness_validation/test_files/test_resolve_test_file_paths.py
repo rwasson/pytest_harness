@@ -24,7 +24,7 @@ def test_01_discovers_test_files_recursively_and_returns_relative_sorted_paths(
     _write(tmp_path / "nested" / "helper.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=None,
         exclude_list=None,
     )
@@ -64,7 +64,7 @@ def test_02_include_list_accepts_file_selectors_with_or_without_suffix(
     _write(tmp_path / "test_two.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=[selector],
         exclude_list=None,
     )
@@ -80,7 +80,7 @@ def test_03_include_directory_discovers_only_test_files_below_it(
     _write(tmp_path / "other" / "test_three.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=["group"],
         exclude_list=None,
     )
@@ -99,7 +99,7 @@ def test_04_exclude_list_removes_files_and_directories(
     _write(tmp_path / "group" / "test_nested.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=None,
         exclude_list=["test_remove", "group"],
     )
@@ -113,7 +113,7 @@ def test_05_duplicate_include_entries_are_deduplicated(
     _write(tmp_path / "test_one.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=[
             "test_one",
             "test_one.py",
@@ -125,7 +125,7 @@ def test_05_duplicate_include_entries_are_deduplicated(
     assert result == [Path("test_one.py")]
 
 
-def test_06_absolute_selector_inside_test_directory_is_supported(
+def test_06_absolute_selector_inside_test_file_directory_is_supported(
     tmp_path: Path,
 ) -> None:
     test_file = _write(
@@ -133,7 +133,7 @@ def test_06_absolute_selector_inside_test_directory_is_supported(
     )
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=[test_file],
         exclude_list=None,
     )
@@ -149,7 +149,7 @@ def test_07_ambiguous_file_and_directory_selector_uses_directory(
     _write(tmp_path / "group" / "test_nested.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=["group"],
         exclude_list=None,
     )
@@ -161,7 +161,7 @@ def test_07_ambiguous_file_and_directory_selector_uses_directory(
     assert "Using directory" in output
 
 
-def test_08_missing_test_directory_raises(
+def test_08_missing_test_file_directory_raises(
     tmp_path: Path,
 ) -> None:
     missing = tmp_path / "missing"
@@ -171,13 +171,13 @@ def test_08_missing_test_directory_raises(
         match="Test directory does not exist",
     ):
         _resolve_test_file_paths(
-            test_dir_path=missing,
+            test_file_dir_path=missing,
             include_list=None,
             exclude_list=None,
         )
 
 
-def test_09_test_directory_path_must_be_directory(
+def test_09_test_file_directory_path_must_be_directory(
     tmp_path: Path,
 ) -> None:
     file_path = _write(
@@ -189,7 +189,7 @@ def test_09_test_directory_path_must_be_directory(
         match="is not a directory",
     ):
         _resolve_test_file_paths(
-            test_dir_path=file_path,
+            test_file_dir_path=file_path,
             include_list=None,
             exclude_list=None,
         )
@@ -203,7 +203,7 @@ def test_10_missing_explicit_py_file_raises(
         match="Unrecognized test file in include_list",
     ):
         _resolve_test_file_paths(
-            test_dir_path=tmp_path,
+            test_file_dir_path=tmp_path,
             include_list=["missing.py"],
             exclude_list=None,
         )
@@ -217,7 +217,7 @@ def test_11_missing_suffixless_selector_raises(
         match="Unrecognized test selector in include_list",
     ):
         _resolve_test_file_paths(
-            test_dir_path=tmp_path,
+            test_file_dir_path=tmp_path,
             include_list=["missing"],
             exclude_list=None,
         )
@@ -233,7 +233,7 @@ def test_12_raises_when_selection_is_empty(
         match="No pytest test files selected",
     ):
         _resolve_test_file_paths(
-            test_dir_path=tmp_path,
+            test_file_dir_path=tmp_path,
             include_list=None,
             exclude_list=None,
         )
@@ -249,7 +249,7 @@ def test_13_raises_when_exclusions_remove_everything(
         match="No pytest test files selected",
     ):
         _resolve_test_file_paths(
-            test_dir_path=tmp_path,
+            test_file_dir_path=tmp_path,
             include_list=None,
             exclude_list=["test_only"],
         )
@@ -264,7 +264,7 @@ def test_14_exclude_list_is_applied_after_include_list(
     _write(tmp_path / "other" / "test_other.py")
 
     result = _resolve_test_file_paths(
-        test_dir_path=tmp_path,
+        test_file_dir_path=tmp_path,
         include_list=["group"],
         exclude_list=["group/test_remove"],
     )

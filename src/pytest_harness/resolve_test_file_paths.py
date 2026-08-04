@@ -10,12 +10,12 @@ from pathlib import Path
 # --- _resolve_test_file_paths() -----------------------------------------------
 def _resolve_test_file_paths(
     *,
-    test_dir_path: Path,
+    test_file_dir_path: Path,
     include_list: list[str | Path] | None,
     exclude_list: list[str | Path] | None,
 ) -> list[Path]:
     """
-    Return selected pytest test-file paths relative to test_dir_path.
+    Return selected pytest test-file paths relative to test_file_dir_path.
     Selection supports:
     - recursive discovery of test_*.py
     - optional include_list
@@ -25,18 +25,18 @@ def _resolve_test_file_paths(
     Detailed selector rules are documented in README.md.
     """
 
-    test_dir_path = test_dir_path.resolve()
+    test_file_dir_path = test_file_dir_path.resolve()
 
-    if not test_dir_path.exists():
+    if not test_file_dir_path.exists():
         raise RuntimeError(
             "Test directory does not exist:\n"
-            f"    {test_dir_path}"
+            f"    {test_file_dir_path}"
         )
 
-    if not test_dir_path.is_dir():
+    if not test_file_dir_path.is_dir():
         raise RuntimeError(
             "Test directory path is not a directory:\n"
-            f"    {test_dir_path}"
+            f"    {test_file_dir_path}"
         )
 
     def make_absolute(entrypath: str | Path) -> Path:
@@ -45,7 +45,7 @@ def _resolve_test_file_paths(
         if entry_path.is_absolute():
             return entry_path.resolve()
 
-        return (test_dir_path / entry_path).resolve()
+        return (test_file_dir_path / entry_path).resolve()
 
     def discover_in_dir(directory_path: Path) -> list[Path]:
         return sorted(
@@ -93,9 +93,9 @@ def _resolve_test_file_paths(
                 "WARNING: Ambiguous pytest_harness selector.\n"
                 f"Both a file and directory match: {entrypath}\n"
                 f"Using directory:\n"
-                f"    {dir_candidate.relative_to(test_dir_path)}\n"
+                f"    {dir_candidate.relative_to(test_file_dir_path)}\n"
                 f"Use this to select the file explicitly:\n"
-                f"    {file_candidate.relative_to(test_dir_path)}"
+                f"    {file_candidate.relative_to(test_file_dir_path)}"
 
             )
             return discover_in_dir(dir_candidate)
@@ -110,7 +110,7 @@ def _resolve_test_file_paths(
 
     # --- include list or discovery ---
     if include_list is None:
-        resolved_paths = discover_in_dir(test_dir_path)
+        resolved_paths = discover_in_dir(test_file_dir_path)
     else:
         resolved_paths = []
         for entry in include_list:
@@ -140,7 +140,7 @@ def _resolve_test_file_paths(
         raise RuntimeError(
             "No pytest test files selected.\n\n"
             f"Test directory:\n"
-            f"    {test_dir_path}\n\n"
+            f"    {test_file_dir_path}\n\n"
             f"include_list:\n"
             f"    {include_list}\n\n"
             f"exclude_list:\n"
@@ -148,7 +148,7 @@ def _resolve_test_file_paths(
         )
 
     relative_resolved_paths = [
-        path.relative_to(test_dir_path)
+        path.relative_to(test_file_dir_path)
         for path in resolved_paths
     ]
 

@@ -11,6 +11,24 @@ class CalculatorError(ValueError):
     """Raised when a calculator operation receives an invalid value."""
 
 
+def calculation_report(
+    operation: str,
+    first: float,
+    second: float,
+    result: float,
+) -> str:
+    """Return a formatted report for a completed calculation for add, divide, and percentage."""
+    return (
+        f"Calculation report\n"
+        f"------------------\n"
+        f"Operation: {operation}\n"
+        f"First:     {first:g}\n"
+        f"Second:    {second:g}\n"
+        f"Result:    {result:g}"
+    )
+
+
+# --- Internal helpers ---------------------------------------------------------
 def add(first: float, second: float) -> float:
     """Return the sum of two numbers."""
     return first + second

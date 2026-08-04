@@ -1,5 +1,5 @@
 """
-test_record_builder.py
+test_import_error.py
 
 Last_edited 2026-7-16
 """
@@ -57,8 +57,8 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
     test_file = tmp_path / "test_example.py"
     test_file.write_text("def test_ok(): pass\n", encoding="utf-8")
 
@@ -108,7 +108,7 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     result = module._build_test_file_record(
         test_file_path=test_file,
         test_file_log_path=log_path,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_data_file_path=coverage_data,
         extra_pytest_args=["-k", "selected"],
         coverage_config_file_path=coverage_config,
@@ -130,7 +130,7 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     assert cmd[:3] == [module.sys.executable, "-m", "pytest"]
     assert "-o" in cmd
     assert "addopts=" in cmd
-    assert f"--cov={source_dir}" in cmd
+    assert f"--cov={tested_code_dir}" in cmd
     assert f"--cov-config={coverage_config}" in cmd
     assert "--cov-report=term-missing" in cmd
     assert str(test_file) in cmd
@@ -151,8 +151,8 @@ def test_02_supports_error_plural_key_and_error_outcome(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
     test_file = tmp_path / "test_error.py"
     test_file.write_text("", encoding="utf-8")
 
@@ -175,7 +175,7 @@ def test_02_supports_error_plural_key_and_error_outcome(
     result = module._build_test_file_record(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "test_error.log",
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_error",
         individual_logs=False,
     )
@@ -189,8 +189,8 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
     test_file = tmp_path / "test_ok.py"
     test_file.write_text("", encoding="utf-8")
 
@@ -202,7 +202,7 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
     module._build_test_file_record(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "unused.log",
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_ok",
         individual_logs=False,
     )
@@ -212,14 +212,14 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
     assert fake_log.new_logger_calls == []
 
 
-def test_04_missing_source_directory_raises_before_starting_subprocess(
+def test_04_missing_tested_code_directory_raises_before_starting_subprocess(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(RuntimeError, match="Source directory does not exist"):
         module._build_test_file_record(
             test_file_path=tmp_path / "test_any.py",
             test_file_log_path=tmp_path / "test_any.log",
-            source_dir=tmp_path / "missing_src",
+            tested_code_dir=tmp_path / "missing_src",
             coverage_data_file_path=tmp_path / ".coverage",
         )
 
@@ -228,8 +228,8 @@ def test_05_unexpected_outcome_raises_and_removes_temporary_report(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
     test_file = tmp_path / "test_unknown.py"
     test_file.write_text("", encoding="utf-8")
 
@@ -252,7 +252,7 @@ def test_05_unexpected_outcome_raises_and_removes_temporary_report(
         module._build_test_file_record(
             test_file_path=test_file,
             test_file_log_path=tmp_path / "test_unknown.log",
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
             coverage_data_file_path=tmp_path / ".coverage.test_unknown",
         )
 
@@ -260,8 +260,8 @@ def test_06_marks_file_when_no_tests_are_collected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
 
     test_file = tmp_path / "test_empty.py"
     test_file.write_text("", encoding="utf-8")
@@ -279,7 +279,7 @@ def test_06_marks_file_when_no_tests_are_collected(
     result = module._build_test_file_record(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "test_empty.log",
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_empty",
         individual_logs=False,
     )

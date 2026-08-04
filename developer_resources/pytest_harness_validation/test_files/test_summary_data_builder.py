@@ -265,13 +265,13 @@ def test_06_combines_coverage_and_builds_source_file_records(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    coverage_dir = tmp_path / "coverage"
-    coverage_dir.mkdir()
+    tested_code_dir = tmp_path / "coverage"
+    tested_code_dir.mkdir()
 
-    source_dir = tmp_path / "src" / "package"
-    source_dir.mkdir(parents=True)
+    tested_code_dir = tmp_path / "src" / "package"
+    tested_code_dir.mkdir(parents=True)
 
-    included_file = source_dir / "module.py"
+    included_file = tested_code_dir / "module.py"
     excluded_file = tmp_path / "outside.py"
 
     _FakeCoverage.instances.clear()
@@ -317,8 +317,8 @@ def test_06_combines_coverage_and_builds_source_file_records(
     )
 
     result = module._combine_coverage_data_files(
-        coverage_dir_path=coverage_dir,
-        source_dir=source_dir,
+        tested_code_dir_path=tested_code_dir,
+        tested_code_dir=tested_code_dir,
     )
 
     assert result.executed_line_count == 8
@@ -361,14 +361,14 @@ def test_06_combines_coverage_and_builds_source_file_records(
     fake_coverage = _FakeCoverage.instances[0]
 
     assert fake_coverage.data_file == str(
-        coverage_dir / ".coverage"
+        tested_code_dir / ".coverage"
     )
     assert fake_coverage.branch is True
     assert fake_coverage.save_called is True
 
     assert fake_coverage.combine_calls == [
         {
-            "data_paths": [str(coverage_dir)],
+            "data_paths": [str(tested_code_dir)],
             "strict": True,
             "keep": True,
         }
@@ -377,7 +377,7 @@ def test_06_combines_coverage_and_builds_source_file_records(
     assert fake_coverage.json_report_calls == [
         {
             "outfile": str(
-                coverage_dir / "combined_coverage.json"
+                tested_code_dir / "combined_coverage.json"
             ),
             "pretty_print": False,
         }
@@ -388,11 +388,11 @@ def test_07_combined_coverage_handles_zero_statement_and_branch_totals(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    coverage_dir = tmp_path / "coverage"
-    coverage_dir.mkdir()
+    tested_code_dir = tmp_path / "coverage"
+    tested_code_dir.mkdir()
 
-    source_dir = tmp_path / "src"
-    source_dir.mkdir()
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
 
     _FakeCoverage.instances.clear()
     _FakeCoverage.report = {
@@ -413,8 +413,8 @@ def test_07_combined_coverage_handles_zero_statement_and_branch_totals(
     )
 
     result = module._combine_coverage_data_files(
-        coverage_dir_path=coverage_dir,
-        source_dir=source_dir,
+        tested_code_dir_path=tested_code_dir,
+        tested_code_dir=tested_code_dir,
     )
 
     assert result.statement_coverage_pct == 0.0

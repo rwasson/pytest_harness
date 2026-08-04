@@ -1,18 +1,18 @@
 """
 record_builder.py
 
-A pytest-based framework for unit pytest_files, integration pytest_files,
+A pytest-based framework for unit test_files, integration test_files,
 and artifact-driven smoke/visual testing.
 
 
 Reusable development-mode pytest runner engine for logduo.
 
 NOTE:
-1. Coverage source is supplied by source_dir and may be
+1. Coverage source is supplied by tested_code_dir and may be
 either a package directory or source tree root.
 
 Example:
-    source_dir=PROJECT_ROOT / "src" / "logduo"
+    tested_code_dir=PROJECT_ROOT / "src" / "logduo"
 
 2. Pytest execution policy is intentionally defined here rather than
 pyproject.toml so the development test harness remains self-contained
@@ -42,7 +42,7 @@ def _build_test_file_record(  # noqa: PLR0915
     *,
     test_file_path: Path,
     test_file_log_path: Path,
-    source_dir: Path,
+    tested_code_dir: Path,
     coverage_data_file_path: Path,
     extra_pytest_args: list[str] | None = None,
     coverage_config_file_path: Path | None = None,
@@ -55,10 +55,10 @@ def _build_test_file_record(  # noqa: PLR0915
     Guarantees correct coverage instrumentation.
     """
 
-    if not source_dir.exists():
+    if not tested_code_dir.exists():
         raise RuntimeError(
             f"Source directory does not exist:\n"
-            f"    {source_dir}"
+            f"    {tested_code_dir}"
         )
 
 
@@ -95,9 +95,25 @@ def _build_test_file_record(  # noqa: PLR0915
         "-m",
         "pytest",
 
+        # Use only pytest's built-in plugins and the plugins required by
+        # pytest_harness. Ignore unrelated third-party plugins installed
+        # in the active environment.
+        "--disable-plugin-autoload",
+        "-p",
+        "pytest_cov",
+        "-p",
+        "pytest_jsonreport",
+        "-p",
+        "pytest_rerunfailures",
+
         # Ignore addopts from pyproject.toml.
         "-o",
         "addopts=",
+
+        # Tests import starting with the name of tested_code_dir.
+        # This override applies only to this pytest subprocess.
+        "-o",
+        f"pythonpath={tested_code_dir.parent}",
 
         # --- Output ---
         "-q",  # quieter pytest output
@@ -106,16 +122,16 @@ def _build_test_file_record(  # noqa: PLR0915
         "--capture=no",  # allow test print() output
         "--tb=short",  # compact tracebacks
         # "--showlocals",  # include local variables in failures, too big
-        "--durations=10",  # show 10 slowest pytest_files
+        "--durations=10",  # show 10 slowest test_files
 
         # --- Execution policy ---
-        "--maxfail=0",  # run all pytest_files
+        "--maxfail=0",  # run all test_files
         "--strict-markers",  # reject unknown pytest markers
         "--disable-warnings",  # suppress warning summary
         "--reruns=0",  # do not rerun failures
 
         # --- Coverage ---
-        f"--cov={source_dir}",  # measure coverage for logduo package
+        f"--cov={tested_code_dir}",  # measure coverage for logduo package
         f"--cov-config={coverage_config_file_path}",
         "--cov-branch",  # include branch coverage
         # Use "--cov-report=" instead to suppress coverage tables in individual logs.

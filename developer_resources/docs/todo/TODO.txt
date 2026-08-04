@@ -1,0 +1,71 @@
+TODO
+====
+1. If needed, add an advanced argument:
+
+`additional_python_paths` : `list[pathlib.Path] | None`
+
+Optional directories added to the import path of each isolated pytest
+subprocess.
+
+Use only when tests must import local code outside `tested_code_dir` and its
+parent. These paths are used for imports but are not included in coverage.
+
+Default: `None`.
+
+
+Current behavior
+----------------
+`tested_code_dir` already handles the normal project layout.
+
+pytest_harness adds `tested_code_dir.parent` to the import path of each isolated
+pytest subprocess. Tests can therefore import starting with the directory name
+of `tested_code_dir`.
+
+For example:
+
+    tested_code_dir = PROJECT_ROOT / "src" / "sample_package"
+
+allows:
+
+    from sample_package.calculator import add
+
+An additional path argument is not currently needed for the supported
+single-package layout. It should be added only if a concrete use case requires
+imports from other local directories.
+
+
+Implementation
+--------------
+In `record_builder.py`, extend the current pytest subprocess path configuration:
+
+    # Tests import starting with the name of tested_code_dir.
+    # This override applies only to this pytest subprocess.
+    "-o",
+    f"pythonpath={tested_code_dir.parent}",
+
+The final import path should contain:
+
+1. `tested_code_dir.parent`
+2. each directory in `additional_python_paths`, in the order supplied
+
+Also required:
+
+- add argument validation
+- pass the argument through the complete call pipeline
+- determine a reliable representation for paths containing spaces
+- document import precedence and duplicate-path behavior
+
+
+Validation tests
+----------------
+Add tests for:
+
+- one additional path
+- multiple additional paths
+- invalid paths
+- path order and import precedence
+- paths containing spaces
+- duplicate paths
+- interaction with an installed package having the same name
+- confirmation that additional paths are not included in coverage
+- default behavior when `additional_python_paths = None`

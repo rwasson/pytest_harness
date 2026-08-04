@@ -25,15 +25,14 @@ exclude_list = [
 ]
 
 
-
 # --- Path settings ---
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-test_dir = (
+test_file_dir = (
     PROJECT_ROOT
     / "developer_resources"
     / "pytest_harness_validation"
-    / "pytest_files"
+    / "test_files"
 )
 
 log_dir = (
@@ -43,7 +42,7 @@ log_dir = (
     / "logs"
 )
 
-source_dir = (
+tested_code_dir = (
     PROJECT_ROOT
     / "src"
     / "pytest_harness"
@@ -53,9 +52,9 @@ source_dir = (
 # === main() DO NOT EDIT BELOW =================================================
 def main() -> None:
     pytest_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         include_list=include_list,
         exclude_list=exclude_list,
         individual_logs=INDIVIDUAL_LOGS,

@@ -167,14 +167,14 @@ def _build_summary_data(  # noqa: PLR0915
 # --- _combine_coverage_data_files() ------------------------------------------
 def _combine_coverage_data_files(
     *,
-    coverage_dir_path: Path,
-    source_dir: Path,
+    tested_code_dir_path: Path,
+    tested_code_dir: Path,
 ) -> CombinedCoverageResult:
     """Combine per-test-file coverage data and return official totals."""
 
-    combined_data_file_path = coverage_dir_path / ".coverage"
+    combined_data_file_path = tested_code_dir_path / ".coverage"
     combined_json_file_path = (
-        coverage_dir_path / "combined_coverage.json"
+        tested_code_dir_path / "combined_coverage.json"
     )
 
     coverage_obj = Coverage(
@@ -184,7 +184,7 @@ def _combine_coverage_data_files(
 
     try:
         coverage_obj.combine(
-            data_paths=[str(coverage_dir_path)],
+            data_paths=[str(tested_code_dir_path)],
             strict=True,
             keep=True,
         )
@@ -246,7 +246,7 @@ def _combine_coverage_data_files(
         totals["percent_covered"]
     )
 
-    source_dir = source_dir.resolve()
+    tested_code_dir = tested_code_dir.resolve()
 
     records: dict[
         str,
@@ -264,8 +264,8 @@ def _combine_coverage_data_files(
         source_file_path = source_file_path.resolve()
 
         if (
-            source_file_path != source_dir
-            and source_dir not in source_file_path.parents
+            source_file_path != tested_code_dir
+            and tested_code_dir not in source_file_path.parents
         ):
             continue
 

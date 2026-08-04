@@ -17,17 +17,17 @@ import pytest_harness.arg_resolver as module
 def test_01_resolves_and_normalizes_valid_arguments(
     tmp_path: Path,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
     result = module._resolve_harness_args(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         include_list=[" test_one ", Path("nested/test_two.py")],
         exclude_list=[" ignored "],
         coverage_warning_threshold=85,
@@ -38,9 +38,9 @@ def test_01_resolves_and_normalizes_valid_arguments(
         debug_pytest_harness=True,
     )
 
-    assert result.test_dir == test_dir.resolve()
+    assert result.test_file_dir == test_file_dir.resolve()
     assert result.log_dir == log_dir.resolve()
-    assert result.source_dir == source_dir.resolve()
+    assert result.tested_code_dir == tested_code_dir.resolve()
 
     assert result.include_list == [
         "test_one",
@@ -62,17 +62,17 @@ def test_02_creates_missing_log_directory_and_prints_message(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "nested" / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
     result = module._resolve_harness_args(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         include_list=None,
         exclude_list=None,
         coverage_warning_threshold=None,
@@ -94,9 +94,9 @@ def test_02_creates_missing_log_directory_and_prints_message(
 @pytest.mark.parametrize(
     ("argument_name", "value"),
     [
-        pytest.param("test_dir", "tests", id="test-dir-string"),
+        pytest.param("test_file_dir", "tests", id="test-dir-string"),
         pytest.param("log_dir", "logs", id="log-dir-string"),
-        pytest.param("source_dir", "src", id="source-dir-string"),
+        pytest.param("tested_code_dir", "src", id="source-dir-string"),
     ],
 )
 def test_03_path_arguments_must_be_path_instances(
@@ -104,17 +104,17 @@ def test_03_path_arguments_must_be_path_instances(
     argument_name: str,
     value: object,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
     kwargs = _valid_args(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
     )
     kwargs[argument_name] = value
 
@@ -129,12 +129,12 @@ def test_03_path_arguments_must_be_path_instances(
     ("argument_name", "message"),
     [
         pytest.param(
-            "test_dir",
+            "test_file_dir",
             "Test directory does not exist",
             id="missing-test-directory",
         ),
         pytest.param(
-            "source_dir",
+            "tested_code_dir",
             "Source directory does not exist",
             id="missing-source-directory",
         ),
@@ -145,20 +145,20 @@ def test_04_required_input_directories_must_exist(
     argument_name: str,
     message: str,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    if argument_name != "test_dir":
-        test_dir.mkdir()
+    if argument_name != "test_file_dir":
+        test_file_dir.mkdir()
 
-    if argument_name != "source_dir":
-        source_dir.mkdir()
+    if argument_name != "tested_code_dir":
+        tested_code_dir.mkdir()
 
     kwargs = _valid_args(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
     )
 
     with pytest.raises(RuntimeError, match=message):
@@ -169,12 +169,12 @@ def test_04_required_input_directories_must_exist(
     ("argument_name", "message"),
     [
         pytest.param(
-            "test_dir",
+            "test_file_dir",
             "Test directory path is not a directory",
             id="test-path-is-file",
         ),
         pytest.param(
-            "source_dir",
+            "tested_code_dir",
             "Source directory path is not a directory",
             id="source-path-is-file",
         ),
@@ -185,20 +185,20 @@ def test_05_required_input_paths_must_be_directories(
     argument_name: str,
     message: str,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
     invalid_path = tmp_path / f"{argument_name}.txt"
     invalid_path.write_text("not a directory", encoding="utf-8")
 
     kwargs = _valid_args(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
     )
     kwargs[argument_name] = invalid_path
 
@@ -209,12 +209,12 @@ def test_05_required_input_paths_must_be_directories(
 def test_06_existing_log_path_must_be_directory(
     tmp_path: Path,
 ) -> None:
-    test_dir = tmp_path / "tests"
-    source_dir = tmp_path / "src"
+    test_file_dir = tmp_path / "tests"
+    tested_code_dir = tmp_path / "src"
     log_dir = tmp_path / "logs.txt"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
     log_dir.write_text("not a directory", encoding="utf-8")
 
     with pytest.raises(
@@ -223,9 +223,9 @@ def test_06_existing_log_path_must_be_directory(
     ):
         module._resolve_harness_args(
             **_valid_args(
-                test_dir=test_dir,
+                test_file_dir=test_file_dir,
                 log_dir=log_dir,
-                source_dir=source_dir,
+                tested_code_dir=tested_code_dir,
             )
         )
 
@@ -544,12 +544,12 @@ def test_15_console_wrap_width_rejects_invalid_values(
 def test_16_log_directory_is_not_created_when_validation_fails(
     tmp_path: Path,
 ) -> None:
-    test_dir = tmp_path / "tests"
-    source_dir = tmp_path / "src"
+    test_file_dir = tmp_path / "tests"
+    tested_code_dir = tmp_path / "src"
     log_dir = tmp_path / "new" / "logs"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
     with pytest.raises(
         TypeError,
@@ -557,9 +557,9 @@ def test_16_log_directory_is_not_created_when_validation_fails(
     ):
         module._resolve_harness_args(
             **_valid_args(
-                test_dir=test_dir,
+                test_file_dir=test_file_dir,
                 log_dir=log_dir,
-                source_dir=source_dir,
+                tested_code_dir=tested_code_dir,
                 individual_logs="yes",
             )
         )
@@ -572,9 +572,9 @@ def test_16_log_directory_is_not_created_when_validation_fails(
 def _valid_args(
     *,
     tmp_path: Path | None = None,
-    test_dir: Path | None = None,
+    test_file_dir: Path | None = None,
     log_dir: Path | None = None,
-    source_dir: Path | None = None,
+    tested_code_dir: Path | None = None,
     include_list: object = None,
     exclude_list: object = None,
     coverage_warning_threshold: object = 85.0,
@@ -585,21 +585,21 @@ def _valid_args(
     debug_pytest_harness: object = False,
 ) -> dict[str, object]:
     if tmp_path is not None:
-        test_dir = tmp_path / "tests"
+        test_file_dir = tmp_path / "tests"
         log_dir = tmp_path / "logs"
-        source_dir = tmp_path / "src"
+        tested_code_dir = tmp_path / "src"
 
-        test_dir.mkdir(exist_ok=True)
-        source_dir.mkdir(exist_ok=True)
+        test_file_dir.mkdir(exist_ok=True)
+        tested_code_dir.mkdir(exist_ok=True)
 
-    assert test_dir is not None
+    assert test_file_dir is not None
     assert log_dir is not None
-    assert source_dir is not None
+    assert tested_code_dir is not None
 
     return {
-        "test_dir": test_dir,
+        "test_file_dir": test_file_dir,
         "log_dir": log_dir,
-        "source_dir": source_dir,
+        "tested_code_dir": tested_code_dir,
         "include_list": include_list,
         "exclude_list": exclude_list,
         "coverage_warning_threshold": coverage_warning_threshold,

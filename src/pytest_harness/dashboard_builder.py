@@ -1,5 +1,5 @@
 """
-summary_table_builder.py
+dashboard_builder.py
 
 Last edited: 2026-07-16
 """
@@ -24,8 +24,8 @@ from pytest_harness.style_helpers import (
 )
 
 
-# --- _build_summary_table() ----------------------------------------------
-def _build_summary_table(
+# --- _build_dashboard() ----------------------------------------------
+def _build_dashboard(
     *,
     summary_data: AggregateTestSummary,
     coverage_warning_threshold: float | None,
@@ -44,10 +44,8 @@ def _build_summary_table(
 
     # --- test file section ---
     lines = [
+        _styled("Pytest Harness Summary", style=styles.title),
         _styled("═" * divider_width, style=styles.divider),
-        _styled("TEST SUMMARY".center(divider_width),style=styles.title),
-        _styled("═" * divider_width, style=styles.divider ),
-        "",
         "",
     ]
 
@@ -133,7 +131,7 @@ def _build_summary_table(
     lines.extend(["", ""])
     lines.extend(
         _build_section_heading(
-            "Coverage",
+            "Total coverage",
             divider="-" * divider_width,
             styles=styles,
         )
@@ -177,7 +175,10 @@ def _build_summary_table(
         )
 
     if show_source_file_coverage:
-        lines.extend(_build_source_file_coverage_lines(summary_data=summary_data))
+        lines.extend(_build_source_file_coverage_lines(
+            summary_data=summary_data,
+            styles=styles,
+        ))
 
     return "\n".join(lines)
 
@@ -192,7 +193,7 @@ def _build_test_file_problem_lines(
 
     if summary_data.not_processed_test_files:
         heading = (
-            "Test files not processed, often due to an import error "
+            "Test files not processed (check imports) "
             f"({summary_data.not_processed_test_file_count}):"
         )
 
@@ -210,7 +211,7 @@ def _build_test_file_problem_lines(
             f"({summary_data.no_tests_collected_test_file_count}):"
         )
 
-        lines.extend(["", _styled(heading, style=styles.problem )])
+        lines.extend(["", _styled(heading, style=styles.problem)])
         lines.extend(
             "    "
             + _styled_field(
@@ -341,10 +342,10 @@ def _build_test_function_problem_lines(
 
     return lines
 
-
 def _build_source_file_coverage_lines(
     *,
     summary_data: AggregateTestSummary,
+    styles: _SummaryStyles,
 ) -> list[str]:
     visible_records = [
         record
@@ -369,38 +370,41 @@ def _build_source_file_coverage_lines(
         for record in visible_records
     ]
 
-    coverage_width = max(
-        [
-            len("Coverage"),
-            *(len(value) for value in coverage_values),
-        ]
+    column_width = max(
+        len("Statements"),
+        len("Coverage"),
+        len("Source file"),
+        *(len(value) for value in coverage_values),
+        *(len(value) for value in count_values),
     )
 
-    count_width = max(
-        [
-            len("Statements"),
-            *(len(value) for value in count_values),
-        ]
+    header_style = styles.header
+
+    top_header_line = (
+        # f"{'':<{column_width}}  "
+        f"{_styled(f"{'Source file':<{column_width}}", style=header_style)}  "
+        f"{_styled(f"{'Executed/':<{column_width}}", style=header_style)}  "
+        f"{_styled('Source', style=header_style)}"
+    )
+
+    bottom_header_line = (
+        f"{_styled(f"{'coverage':<{column_width}}", style=header_style)}  "
+        f"{_styled(f"{'statements':<{column_width}}", style=header_style)}  "
+        f"{_styled('file', style=header_style)}"
+    )
+
+    divider_line = (
+        f"{'-' * column_width}  "
+        f"{'-' * column_width}  "
+        f"{'-' * column_width}"
     )
 
     lines = [
         "",
         "",
-        f"{'Source':<{coverage_width}}",
-        (
-            f"{'file':<{coverage_width}}  "
-            f"{'Executed/':<{count_width}}"
-        ),
-        (
-            f"{'Coverage':<{coverage_width}}  "
-            f"{'Statements':<{count_width}}  "
-            f"Source file"
-        ),
-        (
-            f"{'-' * coverage_width}  "
-            f"{'-' * count_width}  "
-            f"{'-' * len('Source file')}"
-        ),
+        top_header_line,
+        bottom_header_line,
+        _styled(divider_line, style=styles.divider),
     ]
 
     for record, coverage_text, count_text in zip(
@@ -409,12 +413,17 @@ def _build_source_file_coverage_lines(
         count_values,
         strict=True,
     ):
+        source_file_name = escape(
+            Path(record.source_file_path).name
+        )
+
         lines.append(
-            f"{coverage_text:<{coverage_width}}  "
-            f"{count_text:<{count_width}}  "
-            f"{escape(Path(record.source_file_path).name)}"
+            f"{coverage_text:<{column_width}}  "
+            f"{count_text:<{column_width}}  "
+            f"{source_file_name}"
         )
 
     return lines
+
 
 

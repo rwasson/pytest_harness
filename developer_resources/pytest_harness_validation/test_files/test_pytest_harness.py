@@ -117,23 +117,23 @@ def test_01_rejects_missing_required_input_directories(
     missing_name: str,
     message: str,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
     log_dir.mkdir()
 
     if missing_name != "test":
-        test_dir.mkdir()
+        test_file_dir.mkdir()
 
     if missing_name != "source":
-        source_dir.mkdir()
+        tested_code_dir.mkdir()
 
     with pytest.raises(RuntimeError, match=message):
         module.pytest_harness(
-            test_dir=test_dir,
+            test_file_dir=test_file_dir,
             log_dir=log_dir,
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
         )
 
 
@@ -142,14 +142,14 @@ def test_02_creates_missing_log_directory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "new" / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
 
-    test_dir.mkdir()
-    source_dir.mkdir()
+    test_file_dir.mkdir()
+    tested_code_dir.mkdir()
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -192,14 +192,14 @@ def test_02_creates_missing_log_directory(
     )
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
+        "_build_dashboard",
         lambda **kwargs: "summary",
     )
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
     )
 
     assert log_dir.is_dir()
@@ -213,21 +213,21 @@ def test_03_orchestrates_test_run_and_builds_summary(
 ) -> None:
 
     # --- Arrange: project directories ---
-    test_dir = (tmp_path / "tests").resolve()
+    test_file_dir = (tmp_path / "tests").resolve()
     log_dir = (tmp_path / "logs").resolve()
-    source_dir = (tmp_path / "src").resolve()
+    tested_code_dir = (tmp_path / "src").resolve()
     output_dir = log_dir / "pytest_harness" / "run"
 
     for path in (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
-    first_test_file = test_dir / "test_one.py"
-    second_test_file = test_dir / "nested" / "test_two.py"
+    first_test_file = test_file_dir / "test_one.py"
+    second_test_file = test_file_dir / "nested" / "test_two.py"
 
     second_test_file.parent.mkdir()
 
@@ -321,7 +321,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
 
     captured_table_args: dict[str, Any] = {}
 
-    def fake_build_summary_table(
+    def fake_build_dashboard(
         **kwargs: Any,
     ) -> str:
         captured_table_args.update(kwargs)
@@ -329,15 +329,15 @@ def test_03_orchestrates_test_run_and_builds_summary(
 
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
-        fake_build_summary_table,
+        "_build_dashboard",
+        fake_build_dashboard,
     )
 
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         include_list=["test_one", "nested"],
         exclude_list=["ignored"],
         individual_logs=True,
@@ -375,7 +375,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
     )
 
     for call in record_builder_calls:
-        assert call["source_dir"] == source_dir
+        assert call["tested_code_dir"] == tested_code_dir
         assert call["individual_logs"] is True
         assert call["debug_pytest_harness"] is False
 
@@ -383,8 +383,8 @@ def test_03_orchestrates_test_run_and_builds_summary(
     assert coverage_config_existence == [True, True]
 
     # --- Assert: coverage was combined ---
-    assert captured_combine_args["coverage_dir_path"] == Path(fake_temp_dir.name)
-    assert captured_combine_args["source_dir"] == source_dir
+    assert captured_combine_args["tested_code_dir_path"] == Path(fake_temp_dir.name)
+    assert captured_combine_args["tested_code_dir"] == tested_code_dir
     assert fake_temp_dir.cleaned is True
 
     # --- Assert: aggregate summary was built ---
@@ -417,9 +417,9 @@ def test_04_rejects_selected_path_that_disappears_before_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
@@ -445,9 +445,9 @@ def test_04_rejects_selected_path_that_disappears_before_execution(
         match="Unrecognized test file",
     ):
         module.pytest_harness(
-            test_dir=test_dir,
+            test_file_dir=test_file_dir,
             log_dir=log_dir,
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
         )
 
 
@@ -457,13 +457,13 @@ def test_05_passes_coverage_warning_threshold_to_summary_builder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -508,7 +508,7 @@ def test_05_passes_coverage_warning_threshold_to_summary_builder(
 
     table_calls: list[dict[str, Any]] = []
 
-    def fake_build_summary_table(
+    def fake_build_dashboard(
         **kwargs: Any,
     ) -> str:
         table_calls.append(kwargs)
@@ -521,14 +521,14 @@ def test_05_passes_coverage_warning_threshold_to_summary_builder(
 
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
-        fake_build_summary_table,
+        "_build_dashboard",
+        fake_build_dashboard,
     )
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_warning_threshold=85.0,
     )
 
@@ -548,13 +548,13 @@ def test_06_allows_coverage_warning_to_be_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -599,7 +599,7 @@ def test_06_allows_coverage_warning_to_be_disabled(
 
     table_calls: list[dict[str, Any]] = []
 
-    def fake_build_summary_table(
+    def fake_build_dashboard(
         **kwargs: Any,
     ) -> str:
         table_calls.append(kwargs)
@@ -607,14 +607,14 @@ def test_06_allows_coverage_warning_to_be_disabled(
 
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
-        fake_build_summary_table,
+        "_build_dashboard",
+        fake_build_dashboard,
     )
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         coverage_warning_threshold=None,
     )
 
@@ -630,13 +630,13 @@ def test_07_passes_log_keep_to_logduo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -678,14 +678,14 @@ def test_07_passes_log_keep_to_logduo(
     )
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
+        "_build_dashboard",
         lambda **kwargs: "summary",
     )
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         log_keep=7,
     )
 
@@ -700,13 +700,13 @@ def test_08_debug_mode_lists_selected_test_files(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -748,14 +748,14 @@ def test_08_debug_mode_lists_selected_test_files(
     )
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
+        "_build_dashboard",
         lambda **kwargs: "summary",
     )
 
     _run_harness(
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         debug_pytest_harness=True,
     )
 
@@ -772,13 +772,13 @@ def test_09_rejects_selected_path_that_is_not_a_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    selected_dir = test_dir / "test_group.py"
+    selected_dir = test_file_dir / "test_group.py"
     selected_dir.mkdir()
 
     monkeypatch.setattr(
@@ -805,9 +805,9 @@ def test_09_rejects_selected_path_that_is_not_a_file(
         match="Expected file but found something else",
     ):
         module.pytest_harness(
-            test_dir=test_dir,
+            test_file_dir=test_file_dir,
             log_dir=log_dir,
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
         )
 
 
@@ -817,13 +817,13 @@ def test_10_wraps_test_file_read_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text("", encoding="utf-8")
 
     monkeypatch.setattr(
@@ -872,9 +872,9 @@ def test_10_wraps_test_file_read_error(
         match="Unable to read test file",
     ):
         module.pytest_harness(
-            test_dir=test_dir,
+            test_file_dir=test_file_dir,
             log_dir=log_dir,
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
         )
 
 
@@ -884,13 +884,13 @@ def test_11_exits_with_code_one_when_run_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (
-        test_dir,
+        test_file_dir,
         log_dir,
-        source_dir,
+        tested_code_dir,
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_dir / "test_one.py"
+    test_file = test_file_dir / "test_one.py"
     test_file.write_text(
         "def test_one():\n"
         "    pass\n",
@@ -936,15 +936,15 @@ def test_11_exits_with_code_one_when_run_failed(
     )
     monkeypatch.setattr(
         module,
-        "_build_summary_table",
+        "_build_dashboard",
         lambda **kwargs: "summary",
     )
 
     _run_harness(
         expected_exit_code=1,
-        test_dir=test_dir,
+        test_file_dir=test_file_dir,
         log_dir=log_dir,
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
     )
 
     assert fake_log.close_call_count == 1
@@ -992,17 +992,17 @@ def _record(path: Path) -> TestFileRecord:
 def _make_required_dirs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, Path]:
-    test_dir = tmp_path / "tests"
+    test_file_dir = tmp_path / "tests"
     log_dir = tmp_path / "logs"
-    source_dir = tmp_path / "src"
+    tested_code_dir = tmp_path / "src"
     output_dir = log_dir / "run"
 
-    test_dir.mkdir()
+    test_file_dir.mkdir()
     log_dir.mkdir()
-    source_dir.mkdir()
+    tested_code_dir.mkdir()
     output_dir.mkdir()
 
-    return test_dir, log_dir, source_dir, output_dir
+    return test_file_dir, log_dir, tested_code_dir, output_dir
 
 
 def _successful_summary() -> SimpleNamespace:

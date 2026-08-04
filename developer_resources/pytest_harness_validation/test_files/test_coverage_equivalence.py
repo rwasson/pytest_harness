@@ -49,15 +49,15 @@ def test_01_split_test_files_match_one_combined_test_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     project_dir = tmp_path / "project"
-    source_dir = project_dir / "src"
-    split_test_dir = project_dir / "split_tests"
-    combined_test_dir = project_dir / "combined_tests"
+    tested_code_dir = project_dir / "src"
+    split_test_file_dir = project_dir / "split_tests"
+    combined_test_file_dir = project_dir / "combined_tests"
 
-    source_dir.mkdir(parents=True)
-    split_test_dir.mkdir()
-    combined_test_dir.mkdir()
+    tested_code_dir.mkdir(parents=True)
+    split_test_file_dir.mkdir()
+    combined_test_file_dir.mkdir()
 
-    source_file = source_dir / "coverage_target.py"
+    source_file = tested_code_dir / "coverage_target.py"
     source_file.write_text(
         _SOURCE_TEXT,
         encoding="utf-8",
@@ -65,21 +65,21 @@ def test_01_split_test_files_match_one_combined_test_file(
 
     split_test_files = [
         _write_test_file(
-            split_test_dir / "test_group_one.py",
+            split_test_file_dir / "test_group_one.py",
             _TEST_IMPORT_BLOCK + _TEST_GROUP_ONE,
         ),
         _write_test_file(
-            split_test_dir / "test_group_two.py",
+            split_test_file_dir / "test_group_two.py",
             _TEST_IMPORT_BLOCK + _TEST_GROUP_TWO,
         ),
         _write_test_file(
-            split_test_dir / "test_group_three.py",
+            split_test_file_dir / "test_group_three.py",
             _TEST_IMPORT_BLOCK + _TEST_GROUP_THREE,
         ),
     ]
 
     combined_test_file = _write_test_file(
-        combined_test_dir / "test_all.py",
+        combined_test_file_dir / "test_all.py",
         (
             _TEST_IMPORT_BLOCK
             + _TEST_GROUP_ONE
@@ -95,13 +95,13 @@ def test_01_split_test_files_match_one_combined_test_file(
 
     split_result = _run_and_combine(
         run_dir=tmp_path / "split_run",
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         test_files=split_test_files,
     )
 
     combined_result = _run_and_combine(
         run_dir=tmp_path / "combined_run",
-        source_dir=source_dir,
+        tested_code_dir=tested_code_dir,
         test_files=[combined_test_file],
     )
 
@@ -198,27 +198,26 @@ def test_01_split_test_files_match_one_combined_test_file(
 
 
 # === Internal helpers ========================================================
-
 def _run_and_combine(
     *,
     run_dir: Path,
-    source_dir: Path,
+    tested_code_dir: Path,
     test_files: list[Path],
 ) -> CombinedCoverageResult:
-    coverage_dir = run_dir / "coverage"
+    coverage_work_dir = run_dir / "coverage"
     log_dir = run_dir / "logs"
 
-    coverage_dir.mkdir(parents=True)
+    coverage_work_dir.mkdir(parents=True)
     log_dir.mkdir(parents=True)
 
     coverage_config_path = (
-        coverage_dir / "pytest_harness_coveragerc"
+        coverage_work_dir / "pytest_harness_coveragerc"
     )
 
     coverage_config_path.write_text(
         "[run]\n"
         "branch = true\n"
-        f"source = {source_dir}\n"
+        f"source = {tested_code_dir}\n"
         "relative_files = false\n"
         "parallel = true\n"
         "\n"
@@ -238,9 +237,9 @@ def _run_and_combine(
             test_file_log_path=(
                 log_dir / f"{test_file.stem}.log"
             ),
-            source_dir=source_dir,
+            tested_code_dir=tested_code_dir,
             coverage_data_file_path=(
-                coverage_dir / f".coverage.{index}"
+                coverage_work_dir / f".coverage.{index}"
             ),
             coverage_config_file_path=coverage_config_path,
             individual_logs=False,
@@ -251,8 +250,8 @@ def _run_and_combine(
         assert record.error_test_function_count == 0
 
     return _combine_coverage_data_files(
-        coverage_dir_path=coverage_dir,
-        source_dir=source_dir,
+        tested_code_dir_path=coverage_work_dir,
+        tested_code_dir=tested_code_dir,
     )
 
 

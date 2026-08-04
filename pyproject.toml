@@ -1,20 +1,17 @@
 # pyproject.toml
 
-[tool.setuptools.package-data]
-pytest_harness = [
-  "py.typed",
-]
-
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytest_harness"
 readme = "README.md"
-version = "0.1.5"
+version = "0.1.6"
 authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
-description = "An IDE-friendly pytest workflow runner with coverage, a console dashboard and summary log, and optional detailed per-test-file logs."
+
+description = "An easy-to-use pytest workflow orchestrator that handles isolated test execution, coverage, dashboards, and logs."
+
 license = "MIT"
 license-files = ["LICENSE"]
 
@@ -45,7 +42,7 @@ dependencies = [
   "pytest-cov>=5.0.0",
   "pytest-json-report",
   "pytest-rerunfailures>=16,<17",
-  "logduo>=0.1.4",
+  "logduo>=0.1.5",
 ]
 
 [project.urls]
@@ -61,9 +58,6 @@ dev = [
   "ruff>=0.15.0",
   "mypy>=1.10,<3",
   "vulture",
-  "types-setuptools",
-  "types-requests",
-  "isort>=5.13.0",
   "pre-commit>=3.7.0",
 ]
 
@@ -75,11 +69,8 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
-
-# --- logduo -------------------------------------------------------------------
-[tool.logduo]
-console_theme = "light"
-
+[tool.setuptools.package-data]
+pytest_harness = ["py.typed"]
 
 
 # --- mypy ---------------------------------------------------------------------

@@ -1,7 +1,7 @@
 """
 test_summary_table_builder.py
 
-Last edited: 2026-07-16
+Last edited: 2026-08-1
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from rich.text import Text
 
-import pytest_harness.summary_table_builder as module
+import pytest_harness.dashboard_builder as module
 from pytest_harness.constants_and_classes import (
     AggregateTestSummary,
     ProblemTestFileRecord,
@@ -47,7 +47,7 @@ def test_01_builds_main_summary_sections() -> None:
         show_skipped_and_xfailed=False,
     )
 
-    assert "TEST SUMMARY" in text
+    assert "Pytest Harness Summary" in text
 
     assert "Test file summary" in text
     assert "Source files covered:" in text
@@ -62,7 +62,7 @@ def test_01_builds_main_summary_sections() -> None:
     assert "Skipped:" in text
     assert "XFailed:" in text
 
-    assert "Coverage" in text
+    assert "Total coverage" in text
     assert "Statements:" in text
     assert "80%" in text
     assert "Branches:" in text
@@ -162,7 +162,7 @@ def test_04_includes_special_test_file_categories() -> None:
         show_skipped_and_xfailed=False,
     )
 
-    assert "Test files not processed, often due to an import error (1):" in text
+    assert "Test files not processed (check imports) (1):" in text
     assert "test_collection_problem.py" in text
     assert "Test files with no collected tests (1):" in text
     assert "test_empty.py" in text
@@ -441,7 +441,7 @@ def _build_plain_summary(
     show_skipped_and_xfailed: bool,
 ) -> str:
 
-    markup = module._build_summary_table(
+    markup = module._build_dashboard(
         summary_data=summary_data,
         coverage_warning_threshold=coverage_warning_threshold,
         show_source_file_coverage=show_source_file_coverage,
