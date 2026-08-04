@@ -92,7 +92,7 @@ This stages modified, new, and deleted files for the next commit.
 
 E. Review staged changes
 ------------------------
-    git diff --cached --stat
+    git diff --cached --stat    # q to exit
     git status --short
 
 
