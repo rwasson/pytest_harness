@@ -10,7 +10,7 @@ readme = "README.md"
 version = "0.1.6"
 authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
 
-description = "An easy-to-use pytest workflow orchestrator that handles isolated test execution, coverage, dashboards, and logs."
+description = "Easy-to-use pytest workflow orchestrator with isolated test-file execution, combined coverage, dashboard summaries, and optional per-test-file logs."
 
 license = "MIT"
 license-files = ["LICENSE"]
