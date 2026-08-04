@@ -148,27 +148,8 @@ I. Create and push the Git tag
     git push origin "$TAG"
 
 
-J. Create the GitHub Release
-----------------------------
-Pushing the tag does not necessarily create a GitHub Release.
 
-On GitHub:
-
-1. Open the `pytest_harness` repository.
-2. Open Releases.
-3. Select Draft a new release.
-4. Choose the existing tag `vX.Y.Z`.
-5. Use title:
-
-       pytest_harness vX.Y.Z
-
-6. Add release notes or generate them.
-7. Make sure it is not marked as a prerelease.
-8. Mark it as the latest release.
-9. Publish the release.
-
-
-K. Confirm GitHub Actions
+J. Confirm GitHub Actions
 -------------------------
 Confirm all required jobs pass on:
 
@@ -187,7 +168,7 @@ Confirm that GitHub Actions runs:
 Do not publish to PyPI until all required GitHub Actions jobs pass.
 
 
-L. If GitHub Actions fails before PyPI publication
+K. If GitHub Actions fails before PyPI publication
 --------------------------------------------------
 1. Correct the source files, tests, or workflow configuration locally.
 
@@ -233,6 +214,27 @@ release and create it again after the corrected tag has been pushed.
 
 Do not reuse or move a tag after that version has been published to PyPI.
 After PyPI publication, corrections require a new package version.
+
+
+L. Create the GitHub Release
+----------------------------
+Pushing the tag does not necessarily create a GitHub Release.
+
+On GitHub:
+
+1. Open the `pytest_harness` repository.
+2. Open Releases.
+3. Select Draft a new release.
+4. Choose the existing tag `vX.Y.Z`.
+5. Use title:
+
+       pytest_harness vX.Y.Z
+
+6. Add release notes or generate them.
+7. Make sure it is not marked as a prerelease.
+8. Mark it as the latest release.
+9. Publish the release.
+
 
 
 III. PyPI release
