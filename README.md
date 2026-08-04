@@ -96,12 +96,23 @@ Example runner
         main()
 
 
-* IMPORTANT: `tested_code_dir` identifies the dedicated code directory used
-for test imports and coverage analysis.
+**IMPORTANT:**
+- `tested_code_dir` identifies the top-level directory containing the code being
+  tested. Files in that directory and its subdirectories are included in
+  coverage analysis.
 
-For example, if `tested_code_dir = PROJECT_ROOT / "src" / "sample_package"`
-and the `sample_package` directory contains `calculator.py` (and the recommended empty `__init__.py`),
-then the function `add` can be imported from `test_calculator.py` as shown below. 
+- Use the final directory name in `tested_code_dir` as the first part of imports
+  in test files. For example, if:
+
+        tested_code_dir = PROJECT_ROOT / "src" / "sample_package"
+
+  and `sample_package` contains `calculator.py`, then `test_calculator.py` can
+  import `add` with:
+
+        from sample_package.calculator import add
+
+  Recommended: Include an empty `__init__.py` inside `sample_package` to ensure
+  reliable imports.
 
 
 Example test file (excerpt)
@@ -160,7 +171,7 @@ Example test file (excerpt)
 
 Example console output
 ----------------------
-- Console output is color-coded (logs are plain text).
+Console output is color-coded (logs are plain text).
 
     Logging started:  2026-08-03 16:41:48
     Running script:   pytest_harness_runner.py
@@ -315,51 +326,51 @@ Example individual log file (excerpt from test_calculator.log)
 
 Arguments
 ---------
-- **`test_file_dir`**: `pathlib.Path`  
+- **test_file_dir**: `pathlib.Path`  
    Existing directory containing pytest test files.
 
-- **`log_dir`**: `pathlib.Path`  
+- **log_dir**: `pathlib.Path`  
     Directory where pytest_harness creates run logs. The directory is created
     if it does not already exist.
 
-- **`tested_code_dir`**: `pathlib.Path`  
+- **tested_code_dir**: `pathlib.Path`  
     Existing dedicated directory containing the code targeted by the tests and
     measured for coverage. Its parent is used for imports in each pytest
     subprocess.
 
-- **`include_list`**: `list[str | pathlib.Path] | None`  
+- **include_list**: `list[str | pathlib.Path] | None`  
     Optional test files or directories to run. Default is None, which discovers
     all matching test files under `test_file_dir`.
 
-- **`exclude_list`**: `list[str | pathlib.Path] | None`  
+- **exclude_list**: `list[str | pathlib.Path] | None`  
     Optional test files or directories to exclude after discovery or inclusion.
     Default is None.
 
-- **`individual_logs`**: `bool`  
+- **individual_logs**: `bool`  
     Write one detailed log for each selected test file. Default is True.
 
-- **`coverage_warning_threshold`**: `float | None`  
+- **coverage_warning_threshold**: `float | None`  
     Warn when total coverage is below this percentage. This does not affect the
     process exit code. Default is 85.0. Use 0 or None to disable the warning.
 
-- **`show_source_file_coverage`**: `bool`  
+- **show_source_file_coverage**: `bool`  
     Display the source-file coverage table. Default is True.
 
-- **`show_skipped_and_xfailed`**: `bool`  
+- **show_skipped_and_xfailed**: `bool`  
     Include Skipped and XFailed outcomes in the flagged-test section. Default
     is False.
 
-- **`log_keep`**: `int | None`  
+- **log_keep**: `int | None`  
     Number of recent marked run directories to retain. Default is None, which
     disables pruning.
 
-- **`console_theme`**: `str`  
+- **console_theme**: `str`  
     Console color theme: `"dark"` or `"light"`. Default is `"dark"`.
 
-- **`console_wrap_width`**: `int`  
+- **console_wrap_width**: `int`  
     Console wrapping width. Must be at least 80. Default is 150.
 
-- **`debug_pytest_harness`**: `bool`  
+- **debug_pytest_harness**: `bool`  
     Display additional internal diagnostics when a test-file subprocess cannot
     be processed. Default is False.
 

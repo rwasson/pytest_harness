@@ -10,3 +10,9 @@ Changes
 * strengthened handling of conflicting pytest plugin settings
 * updated validation, examples, README, and release documentation
 * updated the Logduo requirement to logduo>=0.1.5
+
+
+
+pytest_harness 0.1.7  2026-08-04
+
+This release improves README documentation.

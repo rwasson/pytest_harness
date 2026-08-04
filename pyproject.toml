@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytest_harness"
 readme = "README.md"
-version = "0.1.6"
+version = "0.1.7"
 authors = [{ name = "R. Wasson", email = "r.wasson.dev@gmail.com" }]
 
 description = "Easy-to-use pytest workflow orchestrator with isolated test-file execution, combined coverage, dashboard summaries, and optional per-test-file logs."
