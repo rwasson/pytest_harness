@@ -1,6 +1,4 @@
 # tests.yml
-# pytest_harness GitHub Actions workflow
-#
 # Purpose:
 # - Runs the pytest_harness validation suite on Ubuntu, macOS, and Windows
 # - Uses Python 3.13
@@ -13,7 +11,7 @@
 
 name: Tests
 
-on:
+"on":
   push:
   pull_request:
 
@@ -50,17 +48,19 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Create validation log directory
-        run: >
-          python -c "from pathlib import Path;
-          Path('developer_resources/pytest_harness_validation/logs').mkdir(
-          parents=True, exist_ok=True)"
+        run: python -c "from pathlib import Path; Path('developer_resources/pytest_harness_validation/logs').mkdir(parents=True, exist_ok=True)"
 
       - name: Run pytest_harness validation suite
-        run: >
-          python
-          developer_resources/pytest_harness_validation/pytest_harness_validation_runner.py
+        run: python developer_resources/pytest_harness_validation/pytest_harness_validation_runner.py
 
       - name: Run Ruff, mypy, and Vulture
-        run: >
-          python
-          developer_resources/pytest_harness_validation/linter_runner.py
+        run: python developer_resources/pytest_harness_validation/linter_runner.py
+
+      - name: Upload pytest_harness validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-harness-validation-logs-${{ runner.os }}
+          path: developer_resources/pytest_harness_validation/logs/
+          if-no-files-found: warn
+
