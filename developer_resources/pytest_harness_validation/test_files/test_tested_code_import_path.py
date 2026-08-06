@@ -126,6 +126,23 @@ def test_import_environment() -> None:
         debug_pytest_harness=True,
     )
 
+    print()
+    print("NESTED TEST FILE EXIT CODE:")
+    print(record.test_file_exit_code)
+    print()
+
+    print("NESTED TEST FILE STATUS:")
+    print(record.status)
+    print()
+
+    print("NESTED TEST FILE ERROR MESSAGE:")
+    print(record.file_error_message)
+    print()
+
+    print("NESTED TEST FILE PATH:")
+    print(record.test_file_path)
+    print()
+
     assert record.test_file_exit_code == 0, (
         "Nested pytest subprocess failed.\n\n"
         f"Exit code: {record.test_file_exit_code}\n"
