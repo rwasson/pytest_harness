@@ -9,7 +9,6 @@ from pathlib import Path
 
 from pytest_harness import pytest_harness
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2] / "examples" / "basic_project"
 
 
@@ -21,6 +20,7 @@ def main() -> None:
         include_list=[
             "test_calculator.py",
             "test_validation.py",
+            "unit_tests/test_arithmetic_functions.py"
         ],
         log_keep=3,
     )

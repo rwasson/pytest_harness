@@ -24,7 +24,8 @@ from pathlib import Path
 
 import pytest
 from logduo import Duo
-from sample_package.calculator import add, divide, percentage
+from sample_package.calculator import calculation_report
+from sample_package.helpers.arithmetic_functions import add
 
 
 def test_01_verify_add_calculation_and_output_to_console_and_log(
@@ -37,6 +38,7 @@ def test_01_verify_add_calculation_and_output_to_console_and_log(
 
     message = f"add(4, 7) returned {result:g}"
 
+
     log_dir_path = str(tmp_path / "logs")
 
     # pytest manages and later removes the temporary directory log_dir_path.
@@ -45,6 +47,8 @@ def test_01_verify_add_calculation_and_output_to_console_and_log(
     log.configure(log_dir_path=log_dir_path)
 
     log(message)
+    log('calculation_report("add",4,7)')
+    log(calculation_report("add", 4, 7))
 
     log_file_path = log.main_log_file_path
     assert log_file_path is not None
@@ -57,11 +61,13 @@ def test_01_verify_add_calculation_and_output_to_console_and_log(
     log_content = log_file_path.read_text(encoding="utf-8")
 
     assert message in console_output
+    assert "Calculation report" in console_output
     assert message in log_content
+    assert "Calculation report" in log_content
 
     print("")
     print("test_01_verify_add_calculation_and_output_to_console_and_log")
-    print("Passed assert statements: confirmed that expected messages are in console and log.")
+    print("Passed assert statements: confirmed that expected strings are in console and log.")
     print("\n--- CAPTURED CONSOLE OUTPUT FOR VISUAL INSPECTION ---")
     print(console_output.rstrip())
 
@@ -71,96 +77,3 @@ def test_01_verify_add_calculation_and_output_to_console_and_log(
     print("--- End of test_01 ---")
 
 
-def test_02_adds_positive_numbers() -> None:
-    print("")
-    print("test_02_adds_positive_numbers")
-    result = add(4, 7)
-    print(f" add(4,7) -> {result}")
-    assert result == 11
-
-
-def test_03_adds_negative_numbers() -> None:
-    assert add(-4, -7) == -11
-
-
-def test_04_adds_mixed_sign_numbers() -> None:
-    assert add(-4, 7) == 3
-
-
-@pytest.mark.parametrize(
-    ("dividend", "divisor", "expected"),
-    [
-        pytest.param(
-            12,
-            3,
-            4,
-            id="whole-number-result",
-        ),
-        pytest.param(
-            5,
-            2,
-            2.5,
-            id="decimal-result",
-        ),
-        pytest.param(
-            -12,
-            3,
-            -4,
-            id="negative-result",
-        ),
-    ],
-)
-def test_05_divides_numbers(
-    dividend: float,
-    divisor: float,
-    expected: float,
-) -> None:
-    result = divide(dividend, divisor)
-    print("")
-    print("test_05_divides_numbers")
-    print(
-        f"divide({dividend}, {divisor}) "
-        f"returned {result}; expected {expected}"
-    )
-
-    assert result == expected
-
-
-@pytest.mark.parametrize(
-    ("part", "whole", "expected"),
-    [
-        pytest.param(
-            25,
-            100,
-            25,
-            id="quarter",
-        ),
-        pytest.param(
-            1,
-            4,
-            25,
-            id="fraction",
-        ),
-        pytest.param(
-            15,
-            60,
-            25,
-            id="non-round-inputs",
-        ),
-    ],
-)
-def test_06_calculates_percentage(
-    part: float,
-    whole: float,
-    expected: float,
-) -> None:
-    result = percentage(part, whole)
-
-    print("")
-    print("test_06_calculates_percentage")
-    print(
-        f"percentage(part={part}, whole={whole}) "
-        f"returned {result}; expected {expected}"
-    )
-
-    assert result == expected

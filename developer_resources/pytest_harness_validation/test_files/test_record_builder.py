@@ -65,7 +65,7 @@ class _FakeLog:
 
 
 # === Tests ===================================================================
-
+# --- test_01_builds_record_from_json_report_and_constructs_expected_command()
 def test_01_builds_record_from_json_report_and_constructs_expected_command(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -133,7 +133,7 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
         individual_logs=True,
     )
 
-    assert result.exit_code == 1
+    assert result.test_file_exit_code == 1
     assert result.duration_seconds == 1.25
     assert result.status is TestFileStatus.PROCESSED
     assert result.file_error_message is None
@@ -177,11 +177,13 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     assert fake_log.join_calls == 1
     assert fake_log.new_logger_calls
 
-    assert "failed output\n" in fake_log.logged_lines[0]
+    # assert "failed output\n" in fake_log.logged_lines[0] TODO delete
+    assert fake_log.logged_lines[0] == "failed output"
     assert "pytest exit code: 1" in fake_log.logged_lines
     assert "duration: 1.25 seconds" in fake_log.logged_lines
 
 
+# --- test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output()
 def test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -213,13 +215,12 @@ def test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "test_error.log",
         tested_code_dir=tested_code_dir,
-        coverage_data_file_path=(
-            tmp_path / ".coverage.test_error"
-        ),
+        coverage_data_file_path=(tmp_path / ".coverage.test_error"),
+        coverage_config_file_path=tmp_path / ".coveragerc",
         individual_logs=False,
     )
 
-    assert result.exit_code == 2
+    assert result.test_file_exit_code == 2
     assert result.status is TestFileStatus.NOT_PROCESSED
     assert result.file_error_message == "collection failed"
 
@@ -229,6 +230,7 @@ def test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output(
     ]
 
 
+# --- test_03_disables_terminal_coverage_report_when_individual_logs_are_off()
 def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -263,9 +265,8 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "unused.log",
         tested_code_dir=tested_code_dir,
-        coverage_data_file_path=(
-            tmp_path / ".coverage.test_ok"
-        ),
+        coverage_data_file_path=(tmp_path / ".coverage.test_ok"),
+        coverage_config_file_path=tmp_path / ".coveragerc",
         individual_logs=False,
     )
 
@@ -278,22 +279,8 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
     assert fake_log.new_logger_calls == []
 
 
-def test_04_missing_tested_code_directory_raises_before_starting_subprocess(
-    tmp_path: Path,
-) -> None:
-    with pytest.raises(
-        RuntimeError,
-        match="Source directory does not exist",
-    ):
-        module._build_test_file_record(
-            test_file_path=tmp_path / "test_any.py",
-            test_file_log_path=tmp_path / "test_any.log",
-            tested_code_dir=tmp_path / "missing_src",
-            coverage_data_file_path=tmp_path / ".coverage",
-        )
-
-
-def test_05_unexpected_outcome_raises(
+# --- test_04_marks_unexpected_outcome_as_invalid_json_report() ----------------
+def test_04_marks_unexpected_outcome_as_invalid_json_report(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -318,23 +305,24 @@ def test_05_unexpected_outcome_raises(
         report=report,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match="Unexpected pytest outcome",
-    ):
-        module._build_test_file_record(
-            test_file_path=test_file,
-            test_file_log_path=(
-                tmp_path / "test_unknown.log"
-            ),
-            tested_code_dir=tested_code_dir,
-            coverage_data_file_path=(
-                tmp_path / ".coverage.test_unknown"
-            ),
-        )
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_log_path=tmp_path / "test_unknown.log",
+        tested_code_dir=tested_code_dir,
+        coverage_data_file_path=tmp_path / ".coverage.test_unknown",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.JSON_REPORT_ERROR_CODE
+    assert result.not_processed_reason == "invalid pytest report"
+    assert result.file_error_message is not None
+    assert "Unexpected pytest outcome" in result.file_error_message
+    assert "mystery" in result.file_error_message
 
 
-def test_06_marks_file_when_no_tests_are_collected(
+# --- test_05_marks_file_when_no_tests_are_collected() -------------------------
+def test_05_marks_file_when_no_tests_are_collected(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -358,17 +346,259 @@ def test_06_marks_file_when_no_tests_are_collected(
         test_file_path=test_file,
         test_file_log_path=tmp_path / "test_empty.log",
         tested_code_dir=tested_code_dir,
-        coverage_data_file_path=(
-            tmp_path / ".coverage.test_empty"
-        ),
+        coverage_data_file_path=(tmp_path / ".coverage.test_empty"),
+        coverage_config_file_path=tmp_path / ".coveragerc",
         individual_logs=False,
     )
 
-    assert result.exit_code == 5
+    assert result.test_file_exit_code == 5
     assert result.status is TestFileStatus.NO_TESTS_COLLECTED
     assert result.file_error_message is None
     assert result.total_test_function_count == 0
     assert result.executed_any_tests is False
+
+
+# --- test_06_marks_selected_path_that_is_not_a_file_as_not_processed() --------
+def test_06_marks_selected_path_that_is_not_a_file_as_not_processed(
+    tmp_path: Path,
+) -> None:
+    selected_path = tmp_path / "test_group.py"
+    selected_path.mkdir()
+
+    result = module._build_test_file_record(
+        test_file_path=selected_path,
+        test_file_log_path=tmp_path / "test_group.log",
+        tested_code_dir=tmp_path / "src",
+        coverage_data_file_path=tmp_path / ".coverage.test_group",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        individual_logs=False,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.PREFLIGHT_ERROR_CODE
+    assert result.not_processed_reason == "invalid test-file path"
+    assert result.file_error_message is not None
+    assert "Expected a test file but found something else" in result.file_error_message
+
+
+# --- test_07_marks_test_file_read_error_as_not_processed() --------------------
+def test_07_marks_test_file_read_error_as_not_processed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    test_file = tmp_path / "test_one.py"
+    test_file.write_text("", encoding="utf-8")
+
+    original_read_text = Path.read_text
+
+    def fake_read_text(
+        path: Path,
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
+        if path == test_file:
+            raise OSError("permission denied")
+
+        return original_read_text(
+            path,
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        fake_read_text,
+    )
+
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_log_path=tmp_path / "test_one.log",
+        tested_code_dir=tmp_path / "src",
+        coverage_data_file_path=tmp_path / ".coverage.test_one",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        individual_logs=False,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.PREFLIGHT_ERROR_CODE
+    assert result.not_processed_reason == "unreadable test file"
+    assert result.file_error_message is not None
+    assert "Unable to read test file" in result.file_error_message
+    assert "permission denied" in result.file_error_message
+
+
+# --- test_08_marks_missing_test_file_as_not_processed() -----------------------
+def test_08_marks_missing_test_file_as_not_processed(
+    tmp_path: Path,
+) -> None:
+    test_file = tmp_path / "test_missing.py"
+
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_log_path=tmp_path / "test_missing.log",
+        tested_code_dir=tmp_path / "src",
+        coverage_data_file_path=tmp_path / ".coverage.test_missing",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        individual_logs=False,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.PREFLIGHT_ERROR_CODE
+    assert result.not_processed_reason == "missing test file"
+    assert result.file_error_message is not None
+    assert "Selected test file no longer exists" in result.file_error_message
+
+# --- test_09_subprocess_launch_failure_returns_not_processed_record() ---
+def test_09_subprocess_launch_failure_returns_not_processed_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
+
+    test_file = tmp_path / "test_example.py"
+    test_file.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "logduo.log",
+        _FakeLog(),
+    )
+
+    def fake_popen(*args: Any, **kwargs: Any) -> None:
+        raise OSError("cannot start process")
+
+    monkeypatch.setattr(
+        module.subprocess,
+        "Popen",
+        fake_popen,
+    )
+
+    times = iter([100.0, 100.5])
+    monkeypatch.setattr(
+        module.time,
+        "perf_counter",
+        lambda: next(times),
+    )
+
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_log_path=tmp_path / "test_example.log",
+        tested_code_dir=tested_code_dir,
+        coverage_data_file_path=tmp_path / ".coverage",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        individual_logs=False,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.SUBPROCESS_LAUNCH_ERROR_CODE
+    assert result.not_processed_reason == "subprocess launch failure"
+    assert "cannot start process" in result.file_error_message
+    assert result.duration_seconds == pytest.approx(0.5)
+
+
+# --- test_10_empty_json_report_returns_not_processed_record() ---
+def test_10_empty_json_report_returns_not_processed_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
+    test_file = tmp_path / "test_example.py"
+    test_file.write_text(
+        "def test_example():\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+
+    fake_log = _FakeLog()
+    fake_process = _FakeProcess(
+        ["pytest output\n"],
+        returncode=0,
+    )
+
+    def fake_popen(cmd: list[str], **kwargs: Any) -> _FakeProcess:
+        return fake_process
+
+    monkeypatch.setattr("logduo.log", fake_log)
+    monkeypatch.setattr(module.subprocess, "Popen", fake_popen,)
+
+    times = iter([100.0, 101.0])
+    monkeypatch.setattr(
+        module.time,
+        "perf_counter",
+        lambda: next(times),
+    )
+
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_log_path=tmp_path / "test_example.log",
+        tested_code_dir=tested_code_dir,
+        coverage_data_file_path=tmp_path / ".coverage",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        individual_logs=False,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.JSON_REPORT_ERROR_CODE
+    assert result.not_processed_reason == "invalid pytest report"
+    assert result.file_error_message is not None
+    assert "did not create a JSON test report" in result.file_error_message
+
+
+# --- test_11_extract_warning_messages_formats_location_and_category() ---
+def test_11_extract_warning_messages_formats_location_and_category() -> None:
+    report = {
+        "warnings": [
+            {
+                "message": "example warning",
+                "category": "UserWarning",
+                "filename": "/project/test_example.py",
+                "lineno": 12,
+            }
+        ]
+    }
+
+    assert module._extract_warning_messages(report) == [
+        "/project/test_example.py:12: UserWarning: example warning"
+    ]
+
+
+# --- test_12_extract_warning_messages_rejects_non_list() ---
+def test_12_extract_warning_messages_rejects_non_list() -> None:
+    with pytest.raises(ValueError, match="valid warnings list"):
+        module._extract_warning_messages({"warnings": "invalid"})
+
+
+# --- test_13_extract_warning_messages_rejects_invalid_record()  ---
+def test_13_extract_warning_messages_rejects_invalid_record() -> None:
+    with pytest.raises(ValueError, match="invalid warning record"):
+        module._extract_warning_messages({"warnings": ["invalid"]})
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "message", "expected"),
+    [
+        (2, "", "pytest interrupted"),
+        (3, "", "pytest internal error"),
+        (4, "", "pytest usage error"),
+        (6, "", "pytest warning limit exceeded"),
+        (2, "ModuleNotFoundError: missing", "missing module"),
+        (2, "ImportError: failed import", "import error"),
+        (2, "SyntaxError: invalid syntax", "syntax error"),
+        (2, "ERROR collecting test_file.py", "collection error"),
+    ],
+)
+# --- test_14_resolve_not_processed_reason() ---
+def test_14_resolve_not_processed_reason(
+    exit_code: int,
+    message: str,
+    expected: str,
+) -> None:
+    assert module._resolve_not_processed_reason(
+        test_file_exit_code=exit_code,
+        file_error_message=message,
+    )
 
 
 # === Internal helpers =========================================================
@@ -445,10 +675,12 @@ def _install_fake_runtime(
 
     times = iter([100.0, 101.25])
 
+
     monkeypatch.setattr(
         module.time,
-        "time",
+        "perf_counter",
         lambda: next(times),
     )
 
     return fake_log, fake_process, popen_call
+

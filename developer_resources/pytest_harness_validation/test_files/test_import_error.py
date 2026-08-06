@@ -115,7 +115,7 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
         individual_logs=True,
     )
 
-    assert result.exit_code == 1
+    assert result.test_file_exit_code == 1
     assert result.duration_seconds == 1.25
     assert result.status is TestFileStatus.PROCESSED
     assert result.file_error_message is None
@@ -182,7 +182,7 @@ def test_02_supports_error_plural_key_and_error_outcome(
 
     assert result.error_test_function_count == 1
     assert result.error_test_function_names == ["test_import_error"]
-    assert result.exit_code == 2
+    assert result.test_file_exit_code == 2
 
 
 def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(

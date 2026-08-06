@@ -255,6 +255,7 @@ def test_13_raises_when_exclusions_remove_everything(
         )
 
 '''
+TODO Convert
 # --- test_14_exclude_list_is_applied_after_include_list() ---------------------
 def test_14_exclude_list_is_applied_after_include_list(
     tmp_path: Path,
@@ -270,6 +271,50 @@ def test_14_exclude_list_is_applied_after_include_list(
     )
 
     assert result == [Path("group/test_keep.py")]
+
+# --- test_04_rejects_selected_path_that_disappears_before_execution() ---------
+def test_04_rejects_selected_path_that_disappears_before_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        test_file_dir,
+        log_dir,
+        tested_code_dir,
+        output_dir,
+    ) = _make_required_dirs(tmp_path)
+
+    fake_log = _FakeLog(output_dir)
+
+    monkeypatch.setattr(module, "log", fake_log)
+    monkeypatch.setattr(
+        module,
+        "_resolve_test_file_paths",
+        lambda **kwargs: [Path("missing.py")],
+    )
+    monkeypatch.setattr(
+        module.tempfile,
+        "TemporaryDirectory",
+        lambda **kwargs: _FakeTemporaryDirectory(
+            prefix="coverage_",
+            temp_dir=output_dir,
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Unrecognized test file",
+    ):
+        module.pytest_harness(
+            test_file_dir=test_file_dir,
+            log_dir=log_dir,
+            tested_code_dir=tested_code_dir,
+        )
+    result.status is TestFileStatus.NOT_PROCESSED
+
+    result.test_file_exit_code == PREFLIGHT_ERROR_CODE
+
+    result.not_processed_reason == "missing test file"
 
 '''
 

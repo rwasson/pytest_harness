@@ -6,12 +6,15 @@ Last edited: 2026-08-1
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from rich.text import Text
 
 import pytest_harness.dashboard_builder as module
 from pytest_harness.constants_and_classes import (
     AggregateTestSummary,
+    NotProcessedTestFileRecord,
     ProblemTestFileRecord,
     SourceFileCoverageRecord,
 )
@@ -162,7 +165,7 @@ def test_04_includes_special_test_file_categories() -> None:
         show_skipped_and_xfailed=False,
     )
 
-    assert "Test files not processed (check imports) (1):" in text
+    assert "Test files not processed (1):" in text
     assert "test_collection_problem.py" in text
     assert "Test files with no collected tests (1):" in text
     assert "test_empty.py" in text
@@ -191,6 +194,10 @@ def test_05_displays_statement_coverage_table_by_source_file() -> None:
         show_source_file_coverage=True,
         show_skipped_and_xfailed=False,
     )
+    print("")
+    print("test_05_displays_statement_coverage_table_by_source_file")
+    print("text")
+    print(text)
 
     assert "Executed/" in text
     assert "Statements" in text
@@ -379,6 +386,7 @@ def _coverage_record(
 
     return SourceFileCoverageRecord(
         source_file_path=path,
+        relative_source_file_path=Path(path).name,
         executed_lines=executed,
         missing_lines=all_lines - executed,
         total_line_count=total,
@@ -393,14 +401,25 @@ def _summary(
     problems: list[ProblemTestFileRecord] | None = None,
     not_processed: list[str] | None = None,
     no_tests_collected: list[str] | None = None,
-    coverage_records: list[
-        SourceFileCoverageRecord
-    ] | None = None,
+    coverage_records: list[SourceFileCoverageRecord] | None = None,
 ) -> AggregateTestSummary:
+    visible_coverage_records = [
+        record
+        for record in (coverage_records or [])
+        if record.total_line_count > 0
+    ]
+
+    not_processed_records = [
+        NotProcessedTestFileRecord(
+            relative_test_file_path=test_file_path,
+            not_processed_reason="collection error",
+            file_error_message="Test collection failed.",
+        )
+        for test_file_path in (not_processed or [])
+    ]
+
     return AggregateTestSummary(
-        source_file_count=len(
-            coverage_records or []
-        ),
+        source_file_count=len(visible_coverage_records),
         test_file_count=3,
         passed_test_file_count=1,
         failed_test_file_count=1,
@@ -422,16 +441,12 @@ def _summary(
         branch_coverage_pct=60.4,
         total_coverage_pct=73.6,
         problem_test_files=problems or [],
-        not_processed_test_files=(
-            not_processed or []
-        ),
-        no_tests_collected_test_files=(
-            no_tests_collected or []
-        ),
-        source_file_coverage_records=(
-            coverage_records or []
-        ),
+        not_processed_test_files=not_processed_records,
+        no_tests_collected_test_files=no_tests_collected or [],
+        warning_test_files=[],
+        source_file_coverage_records=visible_coverage_records,
     )
+
 
 def _build_plain_summary(
     *,

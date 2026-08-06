@@ -24,7 +24,6 @@ exclude_list = [
     "test_empty.py",
 ]
 
-
 # --- Path settings ---
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -60,7 +59,7 @@ def main() -> None:
         individual_logs=INDIVIDUAL_LOGS,
         log_keep=3,
         debug_pytest_harness=False,
-        console_wrap_width=80,
+        console_theme="light"
         # show_skipped_and_xfailed=True,
     )
 

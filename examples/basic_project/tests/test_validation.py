@@ -21,7 +21,7 @@ subproject.
 from __future__ import annotations
 
 import pytest
-from sample_package.calculator import (
+from sample_package.helpers.arithmetic_functions import (
     CalculatorError,
     divide,
     parse_number,

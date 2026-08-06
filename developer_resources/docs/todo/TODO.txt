@@ -1,7 +1,8 @@
 TODO
 ====
-1. If needed, add an advanced argument:
 
+1. Add an advanced argument for alternative layouts
+---------------------------------------------------
 `additional_python_paths` : `list[pathlib.Path] | None`
 
 Optional directories added to the import path of each isolated pytest
@@ -11,7 +12,6 @@ Use only when tests must import local code outside `tested_code_dir` and its
 parent. These paths are used for imports but are not included in coverage.
 
 Default: `None`.
-
 
 Current behavior
 ----------------
@@ -44,22 +44,18 @@ In `record_builder.py`, extend the current pytest subprocess path configuration:
     f"pythonpath={tested_code_dir.parent}",
 
 The final import path should contain:
-
 1. `tested_code_dir.parent`
 2. each directory in `additional_python_paths`, in the order supplied
 
 Also required:
-
 - add argument validation
 - pass the argument through the complete call pipeline
 - determine a reliable representation for paths containing spaces
 - document import precedence and duplicate-path behavior
 
-
 Validation tests
 ----------------
 Add tests for:
-
 - one additional path
 - multiple additional paths
 - invalid paths
@@ -69,3 +65,153 @@ Add tests for:
 - interaction with an installed package having the same name
 - confirmation that additional paths are not included in coverage
 - default behavior when `additional_python_paths = None`
+
+
+2. Optional test-order randomization (within test files) and repeated test-file runs
+------------------------------------------------------------------------------------
+Consider adding opt-in reliability checks that remain consistent with
+pytest_harness's controlled, subprocess-based workflow.
+
+Purpose
+-------
+- expose hidden dependencies between test functions in the same file
+- expose intermittent or flaky test-file behavior
+- provide stronger reliability checks without enabling arbitrary pytest plugins
+
+Possible arguments
+------------------
+    randomize_test_order: bool = False
+    repeat_test_files: int = 1
+
+Possible behavior
+-----------------
+- keep both features disabled by default
+- randomize test-function execution order within each test file
+- record the random seed in the individual test-file log
+- make failed randomized runs reproducible from the recorded seed
+- run each test file the requested number of times
+- report files that pass some runs and fail others as flaky
+- continue using a separate subprocess for each test-file run
+- decide whether each repeated run uses the same order or a new seed
+- decide how repeated runs affect the dashboard and summary counts
+- avoid duplicating or inflating coverage unnecessarily
+- prefer explicit pytest_harness arguments over support for third-party plugins
+
+Documentation considerations
+----------------------------
+README guidance can recommend independent test functions, but it cannot detect
+accidental dependencies between functions in the same file. Randomization
+could therefore be presented as an optional independence check rather than a
+normal execution mode.
+
+Validation tests
+----------------
+Add tests for:
+- randomization disabled
+- reproducible ordering from a fixed seed
+- different seeds producing different orders
+- accidental order dependency detection
+- one repeated run
+- multiple repeated runs
+- consistent passes across all runs
+- a file that passes some runs and fails others
+- flaky-file dashboard and log reporting
+- exit-code behavior for flaky files
+- coverage behavior across repeated runs
+- Windows, macOS, and Linux subprocess behavior
+
+
+3. Optional test-file timeout
+-----------------------------
+Consider adding an opt-in maximum runtime for each test-file subprocess.
+
+Purpose
+-------
+- prevent one hung test file from blocking the complete test run
+- allow remaining test files to continue
+- preserve partial output and diagnostics
+- report timed-out files clearly in the dashboard and logs
+
+Possible argument
+-----------------
+    test_file_timeout_seconds: float | None = None
+
+Possible behavior
+-----------------
+- keep the feature disabled by default
+- apply the timeout to the complete test-file subprocess
+- terminate the subprocess when the limit is exceeded
+- mark the file with a distinct `TIMED_OUT` status
+- record the timeout limit, elapsed time, and captured output
+- continue to the next test file
+- produce exit code 1 for the complete run
+- decide whether child processes also need to be terminated
+- handle process termination correctly on Windows, macOS, and Linux
+- ensure partial logs and coverage files do not break final processing
+
+Implementation considerations
+-----------------------------
+- determine whether `subprocess.run(..., timeout=...)` is sufficient
+- handle `subprocess.TimeoutExpired`
+- decide how to terminate descendant processes
+- add a new status to `TestFileRecord`
+- update dashboard and summary builders
+- preserve captured stdout and stderr after timeout
+- avoid leaving locked files or orphaned processes on Windows
+
+Validation tests
+----------------
+Add tests for:
+- timeout disabled
+- file completing before the limit
+- file exceeding the limit
+- timeout status and error message
+- continuation to later test files
+- complete-run exit code
+- preservation of partial output
+- cleanup of subprocesses and files
+- behavior on Windows, macOS, and Linux
+
+
+4. Create one run-level failure-details log containing only tracebacks and
+processing errors for failed, errored, and not-processed test files.
+
+def _build_not_processed_detail_lines(
+    *,
+    summary_data: AggregateTestSummary,
+    styles: _SummaryStyles,
+) -> list[str]:
+    if not summary_data.not_processed_test_files:
+        return []
+    lines = [
+        "",
+        "",
+        *_build_section_heading(
+            "Not-processed test file details",
+            divider="-" * _DIVIDER_WIDTH,
+            styles=styles,
+        ),
+    ]
+
+    for record in summary_data.not_processed_test_files:
+        lines.extend(
+            [
+                "",
+                _styled_field(
+                    record.relative_test_file_path,
+                    style=styles.file_name,
+                ),
+            ]
+        )
+
+        error_lines = record.file_error_message.splitlines()
+        lines.extend(
+            "    "
+            + _styled_field(
+                error_line,
+                style=styles.muted,
+            )
+            for error_line in error_lines
+        )
+
+    return lines

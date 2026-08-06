@@ -28,10 +28,9 @@ def _build_summary_styles(
 ) -> _SummaryStyles:
     return _SummaryStyles(
         title=theme["title"],
-        # header=theme["header_label"],
         header=theme["title"],
         divider=theme["divider"],
-        file_name="",
+        file_name="",  # filenames use normal console text
         success=theme["success"],
         problem=theme["critical"],
         warning=theme["warning"],
@@ -45,26 +44,14 @@ def _styled(
     *,
     style: str,
 ) -> str:
+    """
+    Apply Rich markup styling to trusted internal text.
+
+    Dynamic user or filesystem values must be escaped before being passed.
+    """
     if not style:
         return text
     return f"[{style}]{text}[/{style}]"
-
-
-def _styled_count(
-    count: int,
-    *,
-    style: str,
-    width: int = 5,
-    style_zero: bool = False,
-) -> str:
-    text = f"{count:>{width}}"
-    if count == 0 and not style_zero:
-        return text
-
-    return _styled(
-        text,
-        style=style,
-    )
 
 
 def _build_section_heading(
@@ -77,10 +64,6 @@ def _build_section_heading(
         _styled(heading, style=styles.header),
         _styled(divider, style=styles.divider),
     ]
-
-
-def _escaped_field(value: object) -> str:
-    return escape(str(value))
 
 
 def _styled_field(

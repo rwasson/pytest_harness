@@ -17,6 +17,7 @@ import pytest
 
 from pytest_harness.constants_and_classes import (
     CombinedCoverageResult,
+    SourceFileCoverageRecord,
 )
 from pytest_harness.record_builder import (
     _build_test_file_record,
@@ -31,8 +32,8 @@ class _FakeLog:
     def join(self) -> None:
         pass
 
+    @staticmethod
     def new_logger(
-        self,
         *args: Any,
         **kwargs: Any,
     ) -> Callable[[str], None]:
@@ -43,8 +44,288 @@ class _FakeLog:
 
 
 # === Tests ===================================================================
+def test_01_single_test_file_matches_official_totals(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = tmp_path / "project"
+    tested_code_dir = project_dir / "src"
+    test_file_dir = project_dir / "tests"
 
-def test_01_split_test_files_match_one_combined_test_file(
+    tested_code_dir.mkdir(parents=True)
+    test_file_dir.mkdir()
+
+    source_file = tested_code_dir / "coverage_target.py"
+    source_file.write_text(
+        _SOURCE_TEXT,
+        encoding="utf-8",
+    )
+
+    test_file = _write_test_file(
+        test_file_dir / "test_group_one.py",
+        _TEST_IMPORT_BLOCK + _TEST_GROUP_ONE,
+    )
+
+    monkeypatch.setattr(
+        "logduo.log",
+        _FakeLog(),
+    )
+
+    result = _run_and_combine(
+        run_dir=tmp_path / "single_run",
+        tested_code_dir=tested_code_dir,
+        test_files=[test_file],
+    )
+
+    record = _get_only_source_record(result)
+
+    expected_executed_lines = {
+        2,
+        3,
+        4,
+        5,
+        6,
+        8,
+        9,
+        17,
+        32,
+        47,
+        48,
+        51,
+        60,
+    }
+
+    expected_missing_lines = {
+        11,
+        12,
+        14,
+        18,
+        19,
+        20,
+        21,
+        23,
+        24,
+        26,
+        27,
+        29,
+        38,
+        39,
+        41,
+        42,
+        44,
+        49,
+        52,
+        53,
+        55,
+        57,
+        61,
+        62,
+        63,
+    }
+
+    expected_executed_branches = {
+        (3, 4),
+        (3, 8),
+        (4, 5),
+        (4, 6),
+        (8, 9),
+    }
+
+    expected_missing_branches = {
+        (8, 11),
+        (11, 12),
+        (11, 14),
+        (23, 24),
+        (23, 26),
+        (26, 27),
+        (26, 29),
+        (38, 39),
+        (38, 41),
+        (41, 42),
+        (41, 44),
+        (52, 53),
+        (52, 55),
+        (61, -60),
+        (61, 62),
+        (62, 61),
+        (62, 63),
+    }
+
+    assert record.executed_lines == expected_executed_lines
+    assert record.missing_lines == expected_missing_lines
+
+    assert record.executed_branch_pairs == expected_executed_branches
+    assert (
+        record.total_branch_pairs
+        == expected_executed_branches | expected_missing_branches
+    )
+
+    # There is only one measured source file, so its counts must exactly
+    # match Coverage.py's official combined totals.
+    assert result.executed_line_count == record.executed_line_count == 13
+    assert result.total_line_count == record.total_line_count == 38
+
+    assert result.executed_branch_count == record.executed_branch_count == 5
+    assert result.total_branch_count == record.total_branch_count == 22
+
+    assert result.statement_coverage_pct == pytest.approx(
+        record.statement_coverage_pct
+    )
+    assert result.branch_coverage_pct == pytest.approx(
+        record.branch_coverage_pct
+    )
+    assert result.total_coverage_pct == pytest.approx(
+        record.overall_coverage_pct
+    )
+
+    assert result.statement_coverage_pct == pytest.approx(
+        34.21052631578947
+    )
+    assert result.branch_coverage_pct == pytest.approx(
+        22.727272727272727
+    )
+    assert result.total_coverage_pct == pytest.approx(30.0)
+
+def test_02_two_test_files_combine_to_expected_coverage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_dir = tmp_path / "project"
+    tested_code_dir = project_dir / "src"
+    test_file_dir = project_dir / "tests"
+
+    tested_code_dir.mkdir(parents=True)
+    test_file_dir.mkdir()
+
+    source_file = tested_code_dir / "coverage_target.py"
+    source_file.write_text(
+        _SOURCE_TEXT,
+        encoding="utf-8",
+    )
+
+    test_files = [
+        _write_test_file(
+            test_file_dir / "test_group_one.py",
+            _TEST_IMPORT_BLOCK + _TEST_GROUP_ONE,
+        ),
+        _write_test_file(
+            test_file_dir / "test_group_two.py",
+            _TEST_IMPORT_BLOCK + _TEST_GROUP_TWO,
+        ),
+    ]
+
+    monkeypatch.setattr(
+        "logduo.log",
+        _FakeLog(),
+    )
+
+    result = _run_and_combine(
+        run_dir=tmp_path / "two_file_run",
+        tested_code_dir=tested_code_dir,
+        test_files=test_files,
+    )
+
+    record = _get_only_source_record(result)
+
+    expected_executed_lines = {
+        2,
+        3,
+        4,
+        5,
+        6,
+        8,
+        9,
+        11,
+        12,
+        14,
+        17,
+        18,
+        19,
+        20,
+        21,
+        23,
+        24,
+        26,
+        27,
+        29,
+        32,
+        47,
+        48,
+        51,
+        60,
+    }
+
+    expected_missing_lines = {
+        38,
+        39,
+        41,
+        42,
+        44,
+        49,
+        52,
+        53,
+        55,
+        57,
+        61,
+        62,
+        63,
+    }
+
+    expected_executed_branches = {
+        (3, 4),
+        (3, 8),
+        (4, 5),
+        (4, 6),
+        (8, 9),
+        (8, 11),
+        (11, 12),
+        (11, 14),
+        (23, 24),
+        (23, 26),
+        (26, 27),
+        (26, 29),
+    }
+
+    expected_missing_branches = {
+        (38, 39),
+        (38, 41),
+        (41, 42),
+        (41, 44),
+        (52, 53),
+        (52, 55),
+        (61, -60),
+        (61, 62),
+        (62, 61),
+        (62, 63),
+    }
+
+    assert record.executed_lines == expected_executed_lines
+    assert record.missing_lines == expected_missing_lines
+
+    assert record.executed_branch_pairs == expected_executed_branches
+    assert (
+        record.total_branch_pairs
+        == expected_executed_branches | expected_missing_branches
+    )
+
+    assert result.executed_line_count == 25
+    assert result.total_line_count == 38
+
+    assert result.executed_branch_count == 12
+    assert result.total_branch_count == 22
+
+    assert result.statement_coverage_pct == pytest.approx(
+        65.78947368421052
+    )
+    assert result.branch_coverage_pct == pytest.approx(
+        54.54545454545455
+    )
+    assert result.total_coverage_pct == pytest.approx(
+        61.666666666666664
+    )
+
+
+def test_03_split_test_files_match_one_combined_test_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -245,12 +526,12 @@ def _run_and_combine(
             individual_logs=False,
         )
 
-        assert record.exit_code == 0
+        assert record.test_file_exit_code == 0
         assert record.failed_test_function_count == 0
         assert record.error_test_function_count == 0
 
     return _combine_coverage_data_files(
-        tested_code_dir_path=coverage_work_dir,
+        coverage_temp_dir_path=coverage_work_dir,
         tested_code_dir=tested_code_dir,
     )
 
@@ -267,6 +548,15 @@ def _write_test_file(
 
 
 # === Internal helpers =========================================================
+def _get_only_source_record(
+    result: CombinedCoverageResult,
+) -> SourceFileCoverageRecord:
+    assert len(result.source_file_coverage_records) == 1
+
+    return next(
+        iter(result.source_file_coverage_records.values())
+    )
+
 
 _SOURCE_TEXT = '''
 def classify_number(value: int) -> str:

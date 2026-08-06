@@ -16,3 +16,67 @@ Changes
 pytest_harness 0.1.7  2026-08-04
 
 This release improves README documentation.
+
+
+pytest-harness 0.1.8
+
+This release substantially improves test-file processing, coverage validation, warning visibility, nested-path support, and diagnostic reporting.
+
+Added
+
+* Added structured warning capture from pytest JSON reports.
+* Added a dashboard section listing test files that produced warnings.
+* Warning details remain available in the corresponding individual test-file logs.
+* Added explicit per-file processing error codes for:
+    * preflight failures;
+    * subprocess launch failures;
+    * invalid or unreadable pytest JSON reports.
+* Added concise reasons beside test files that could not be processed.
+* Added support for nested test-file paths and nested source-file paths.
+* Added stronger coverage-equivalence tests confirming that:
+    * isolated test-file subprocess coverage matches a combined test run;
+    * single-file source coverage matches official Coverage.py totals;
+    * coverage from multiple isolated files combines into the expected executed-line and branch union.
+* Added tests for missing, unreadable, and invalid test-file paths.
+* Added tests for subprocess launch failures, malformed reports, warning parsing, and pytest exit-code classification.
+
+Changed
+
+* Test-file failures that occur after selection are now recorded as per-file NOT_PROCESSED results instead of terminating the entire harness run.
+* The dashboard now reports concise not-processed reasons such as:
+    * missing test file;
+    * invalid test-file path;
+    * unreadable test file;
+    * missing module;
+    * import error;
+    * syntax error;
+    * collection error;
+    * subprocess launch failure;
+    * invalid pytest report.
+* Warnings are no longer suppressed by default.
+* Warnings remain nonfatal unless pytest itself is configured to treat them as errors.
+* Source files containing no executable statements are omitted from the source-file coverage table.
+* Source-file counts now match the records displayed in the coverage table.
+* Coverage data combination now uses the explicitly named coverage temporary directory.
+* Coverage results are restricted to files within the configured tested-code directory.
+* Debug output and test-file reporting were clarified.
+* Internal path and record handling were simplified and made more consistent.
+* Production classes beginning with Test are marked with __test__ = False to prevent accidental pytest collection.
+
+Fixed
+
+* Fixed misleading coverage results caused by ambiguous coverage-directory handling.
+* Fixed nested test paths producing unsafe or invalid log-file names.
+* Fixed stale assumptions in summary and dashboard data structures.
+* Fixed not-processed test files being represented as plain strings instead of structured records.
+* Fixed warning-producing files being silently overlooked.
+* Fixed unexpected pytest outcomes propagating as harness exceptions instead of being recorded as invalid report results.
+* Fixed coverage tables including empty source records.
+* Fixed several test helpers and validation tests that no longer matched the current record model.
+
+Validation
+
+* Full validation suite passes.
+* Linters pass cleanly.
+* Total project coverage is approximately 93%.
+* No pytest warnings remain in the validation suite.

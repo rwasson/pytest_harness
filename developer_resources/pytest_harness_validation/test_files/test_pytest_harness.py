@@ -383,7 +383,7 @@ def test_03_orchestrates_test_run_and_builds_summary(
     assert coverage_config_existence == [True, True]
 
     # --- Assert: coverage was combined ---
-    assert captured_combine_args["tested_code_dir_path"] == Path(fake_temp_dir.name)
+    assert captured_combine_args["coverage_temp_dir_path"] == Path(fake_temp_dir.name)
     assert captured_combine_args["tested_code_dir"] == tested_code_dir
     assert fake_temp_dir.cleaned is True
 
@@ -406,53 +406,14 @@ def test_03_orchestrates_test_run_and_builds_summary(
     assert (captured_table_args["theme"] is fake_log.session_config.console_theme_dict)
 
     # --- Assert: final summary and cleanup---
-    assert fake_log.messages == ["SUMMARY TEXT"]
+    assert "SUMMARY TEXT" in fake_log.messages
+    assert "Pytest Harness exit code: 0 (no errors detected)" in fake_log.messages
     assert fake_log.warnings == []
     assert fake_log.close_call_count == 1
 
 
-# --- test_04_rejects_selected_path_that_disappears_before_execution() ---------
-def test_04_rejects_selected_path_that_disappears_before_execution(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    (
-        test_file_dir,
-        log_dir,
-        tested_code_dir,
-        output_dir,
-    ) = _make_required_dirs(tmp_path)
-
-    fake_log = _FakeLog(output_dir)
-
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("missing.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="Unrecognized test file",
-    ):
-        module.pytest_harness(
-            test_file_dir=test_file_dir,
-            log_dir=log_dir,
-            tested_code_dir=tested_code_dir,
-        )
-
-
-# --- test_05_passes_coverage_warning_threshold_to_summary_builder() -----------
-def test_05_passes_coverage_warning_threshold_to_summary_builder(
+# --- test_04_passes_coverage_warning_threshold_to_summary_builder() -----------
+def test_04_passes_coverage_warning_threshold_to_summary_builder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -534,16 +495,22 @@ def test_05_passes_coverage_warning_threshold_to_summary_builder(
 
     assert table_calls[0]["coverage_warning_threshold"] == 85.0
 
-    assert len(fake_log.messages) == 1
+
+    assert len(fake_log.messages) == 4
     assert "84%" in fake_log.messages[0]
     assert "85%" in fake_log.messages[0]
+    assert fake_log.messages[1:3] == ["", ""]
+    assert (
+            fake_log.messages[3]
+            == "Pytest Harness exit code: 0 (no errors detected)"
+    )
 
     # Warning is embedded in the summary rather than logged afterward.
     assert fake_log.warnings == []
 
 
-# --- test_06_allows_coverage_warning_to_be_disabled() -------------------------
-def test_06_allows_coverage_warning_to_be_disabled(
+# --- test_05_allows_coverage_warning_to_be_disabled() -------------------------
+def test_05_allows_coverage_warning_to_be_disabled(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -624,8 +591,8 @@ def test_06_allows_coverage_warning_to_be_disabled(
     )
 
 
-# --- test_07_passes_log_keep_to_logduo() --------------------------------------
-def test_07_passes_log_keep_to_logduo(
+# --- test_06_passes_log_keep_to_logduo() --------------------------------------
+def test_06_passes_log_keep_to_logduo(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -693,8 +660,8 @@ def test_07_passes_log_keep_to_logduo(
     assert fake_log.configure_calls[0]["keep"] == 7
 
 
-# --- test_08_debug_mode_lists_selected_test_files() ---------------------------
-def test_08_debug_mode_lists_selected_test_files(
+# --- test_07_debug_mode_lists_selected_test_files() ---------------------------
+def test_07_debug_mode_lists_selected_test_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -761,125 +728,12 @@ def test_08_debug_mode_lists_selected_test_files(
 
     output = capsys.readouterr().out
 
-    assert "DEBUG: Exact test files" in output
+    assert "DEBUG: --- List of test files pytest_harness will run ---" in output
     assert "1. test_one.py" in output
-    assert "DEBUG: Exact test-file count: 1" in output
 
 
-# ---  test_09_rejects_selected_path_that_is_not_a_file() ----------------------
-def test_09_rejects_selected_path_that_is_not_a_file(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    (
-        test_file_dir,
-        log_dir,
-        tested_code_dir,
-        output_dir,
-    ) = _make_required_dirs(tmp_path)
-
-    selected_dir = test_file_dir / "test_group.py"
-    selected_dir.mkdir()
-
-    monkeypatch.setattr(
-        module,
-        "log",
-        _FakeLog(output_dir),
-    )
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_group.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="Expected file but found something else",
-    ):
-        module.pytest_harness(
-            test_file_dir=test_file_dir,
-            log_dir=log_dir,
-            tested_code_dir=tested_code_dir,
-        )
-
-
-# --- test_10_wraps_test_file_read_error() -------------------------------------
-def test_10_wraps_test_file_read_error(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    (
-        test_file_dir,
-        log_dir,
-        tested_code_dir,
-        output_dir,
-    ) = _make_required_dirs(tmp_path)
-
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text("", encoding="utf-8")
-
-    monkeypatch.setattr(
-        module,
-        "log",
-        _FakeLog(output_dir),
-    )
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-
-    original_read_text = Path.read_text
-
-    def fake_read_text(
-        path: Path,
-        *args: Any,
-        **kwargs: Any,
-    ) -> str:
-        if path == test_file:
-            raise OSError("permission denied")
-
-        return original_read_text(
-            path,
-            *args,
-            **kwargs,
-        )
-
-    monkeypatch.setattr(
-        Path,
-        "read_text",
-        fake_read_text,
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="Unable to read test file",
-    ):
-        module.pytest_harness(
-            test_file_dir=test_file_dir,
-            log_dir=log_dir,
-            tested_code_dir=tested_code_dir,
-        )
-
-
-# --- test_11_exits_with_code_one_when_run_failed() ----------------------------
-def test_11_exits_with_code_one_when_run_failed(
+# --- test_08_exits_with_code_one_when_run_failed() ----------------------------
+def test_08_exits_with_code_one_when_run_failed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -970,10 +824,13 @@ def _empty_combined_result(
 def _record(path: Path) -> TestFileRecord:
     return TestFileRecord(
         test_file_path=str(path),
-        exit_code=0,
+        test_file_exit_code=0,
         duration_seconds=0.1,
         status=TestFileStatus.PROCESSED,
+        not_processed_reason=None,
         file_error_message=None,
+        warning_count=0,
+        warning_messages=[],
         passed_test_function_count=1,
         failed_test_function_count=0,
         error_test_function_count=0,

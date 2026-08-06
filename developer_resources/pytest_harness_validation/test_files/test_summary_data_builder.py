@@ -37,18 +37,18 @@ def test_01_builds_aggregate_counts_and_problem_records(
             skipped=["test_skip"],
             xfailed=["test_expected_failure"],
             xpassed=["test_unexpected_pass"],
-            exit_code=1,
+            test_file_exit_code=100,
         ),
         _file_record(
             path=str(tmp_path / "test_error.py"),
             errors=["test_setup_error"],
-            exit_code=1,
+            test_file_exit_code=1,
         ),
         _file_record(
             path=str(
                 tmp_path / "test_import_problem.py"
             ),
-            exit_code=2,
+            test_file_exit_code=2,
             status=TestFileStatus.NOT_PROCESSED,
             file_error_message=(
                 "ImportError during collection"
@@ -56,7 +56,7 @@ def test_01_builds_aggregate_counts_and_problem_records(
         ),
         _file_record(
             path=str(tmp_path / "test_empty.py"),
-            exit_code=5,
+            test_file_exit_code=5,
             status=TestFileStatus.NO_TESTS_COLLECTED,
         ),
     ]
@@ -79,6 +79,7 @@ def test_01_builds_aggregate_counts_and_problem_records(
     result = module._build_summary_data(
         pytest_test_file_records=records,
         combined_coverage_result=coverage,
+        test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
         debug_pytest_harness=False,
     )
@@ -99,19 +100,15 @@ def test_01_builds_aggregate_counts_and_problem_records(
     assert result.xfailed_test_function_count == 1
     assert result.xpassed_test_function_count == 1
 
-    assert result.not_processed_test_files == [
-        "test_import_problem.py"
-    ]
+    assert len(result.not_processed_test_files) == 1
+
+    not_processed = result.not_processed_test_files[0]
+    assert not_processed.relative_test_file_path == "test_import_problem.py"
+    assert not_processed.not_processed_reason == "processing error"
+    assert not_processed.file_error_message == "ImportError during collection"
     assert result.not_processed_test_file_count == 1
-
-    assert result.no_tests_collected_test_files == [
-        "test_empty.py"
-    ]
-    assert (
-        result.no_tests_collected_test_file_count
-        == 1
-    )
-
+    assert result.no_tests_collected_test_files == ["test_empty.py"]
+    assert (result.no_tests_collected_test_file_count == 1)
     assert [
         record.test_file_name
         for record in result.problem_test_files
@@ -121,19 +118,10 @@ def test_01_builds_aggregate_counts_and_problem_records(
     ]
 
     mixed = result.problem_test_files[0]
-
-    assert mixed.failed_test_function_names == [
-        "test_fail"
-    ]
-    assert mixed.skipped_test_function_names == [
-        "test_skip"
-    ]
-    assert mixed.xfailed_test_function_names == [
-        "test_expected_failure"
-    ]
-    assert mixed.xpassed_test_function_names == [
-        "test_unexpected_pass"
-    ]
+    assert mixed.failed_test_function_names == ["test_fail"]
+    assert mixed.skipped_test_function_names == ["test_skip"]
+    assert mixed.xfailed_test_function_names == ["test_expected_failure"]
+    assert mixed.xpassed_test_function_names == ["test_unexpected_pass"]
 
     # ProblemTestFileRecord currently retains all non-Passed
     # outcomes, including Skipped and XFailed.
@@ -153,6 +141,7 @@ def test_02_skipped_and_xfailed_only_file_is_not_flagged_by_default(
     result = module._build_summary_data(
         pytest_test_file_records=[record],
         combined_coverage_result=_combined_result([]),
+        test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
         debug_pytest_harness=False,
     )
@@ -177,6 +166,7 @@ def test_03_show_all_problems_flags_skipped_and_xfailed_file(
     result = module._build_summary_data(
         pytest_test_file_records=[record],
         combined_coverage_result=_combined_result([]),
+        test_file_dir=tmp_path,
         show_skipped_and_xfailed=True,
         debug_pytest_harness=False,
     )
@@ -213,9 +203,8 @@ def test_04_copies_official_coverage_totals_and_sorts_source_files_lowest_first(
 
     result = module._build_summary_data(
         pytest_test_file_records=[],
-        combined_coverage_result=_combined_result(
-            [high, low]
-        ),
+        combined_coverage_result=_combined_result([high, low]),
+        test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
         debug_pytest_harness=False,
     )
@@ -241,11 +230,13 @@ def test_04_copies_official_coverage_totals_and_sorts_source_files_lowest_first(
 
 
 def test_05_debug_mode_prints_official_counts(
+    tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     result = module._build_summary_data(
         pytest_test_file_records=[],
         combined_coverage_result=_combined_result([]),
+        test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
         debug_pytest_harness=True,
     )
@@ -317,7 +308,7 @@ def test_06_combines_coverage_and_builds_source_file_records(
     )
 
     result = module._combine_coverage_data_files(
-        tested_code_dir_path=tested_code_dir,
+        coverage_temp_dir_path=tested_code_dir,
         tested_code_dir=tested_code_dir,
     )
 
@@ -413,7 +404,7 @@ def test_07_combined_coverage_handles_zero_statement_and_branch_totals(
     )
 
     result = module._combine_coverage_data_files(
-        tested_code_dir_path=tested_code_dir,
+        coverage_temp_dir_path=tested_code_dir,
         tested_code_dir=tested_code_dir,
     )
 
@@ -421,6 +412,49 @@ def test_07_combined_coverage_handles_zero_statement_and_branch_totals(
     assert result.branch_coverage_pct == 0.0
     assert result.total_coverage_pct == 100.0
     assert result.source_file_coverage_records == {}
+
+
+# --- test_08_build_summary_collects_warning_test_files() ---
+def test_08_build_summary_collects_warning_test_files(
+    tmp_path: Path,
+) -> None:
+
+    nested_dir = tmp_path / "nested"
+    nested_dir.mkdir()
+
+    records = [
+        _file_record(
+            path=str(tmp_path / "test_clean.py"),
+            warning_count=0,
+        ),
+        _file_record(
+            path=str(tmp_path / "nested" / "test_warning.py"),
+            warning_count=2,
+            warning_messages=["warning one", "warning two"],
+        ),
+    ]
+
+    result = module._build_summary_data(
+        pytest_test_file_records=records,
+        combined_coverage_result=_combined_result([]),
+        test_file_dir=tmp_path,
+        show_skipped_and_xfailed=False,
+        debug_pytest_harness=False,
+    )
+
+    # One test file had warnings.
+    assert result.warning_test_file_count == 1
+
+    # here were two warnings in total.
+    assert result.warning_count == 2
+
+    # The correct test file was identified.
+    assert result.warning_test_files[0].relative_test_file_path == "nested/test_warning.py"
+
+    # hat specific file was recorded with two warnings.
+    assert result.warning_test_files[0].warning_count == 2
+
+
 
 # === Internal helpers ========================================================
 
@@ -433,9 +467,12 @@ def _file_record(
     skipped: list[str] | None = None,
     xfailed: list[str] | None = None,
     xpassed: list[str] | None = None,
-    exit_code: int = 0,
+    test_file_exit_code: int = 0,
     status: TestFileStatus = TestFileStatus.PROCESSED,
+    not_processed_reason: str = None,
     file_error_message: str | None = None,
+    warning_count: int = 0,
+    warning_messages: list[str] | None = None,
 ) -> TestFileRecord:
     passed = passed or []
     failed = failed or []
@@ -446,10 +483,13 @@ def _file_record(
 
     return TestFileRecord(
         test_file_path=path,
-        exit_code=exit_code,
+        test_file_exit_code=test_file_exit_code,
         duration_seconds=0.1,
         status=status,
+        not_processed_reason=not_processed_reason,
         file_error_message=file_error_message,
+        warning_count=warning_count,
+        warning_messages=warning_messages or [],
         passed_test_function_count=len(passed),
         failed_test_function_count=len(failed),
         error_test_function_count=len(errors),
@@ -477,6 +517,7 @@ def _coverage_record(
 
     return SourceFileCoverageRecord(
         source_file_path=path,
+        relative_source_file_path=Path(path).name,
         executed_lines=executed_lines,
         missing_lines=all_lines - executed_lines,
         total_line_count=total_line_count,

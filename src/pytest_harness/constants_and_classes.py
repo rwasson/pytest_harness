@@ -17,7 +17,8 @@ MIN_CONSOLE_WRAP_WIDTH = 80
 MIN_COVERAGE_WARNING_THRESHOLD = 0.0
 MAX_COVERAGE_WARNING_THRESHOLD = 100.0
 DEFAULT_COVERAGE_WARNING_THRESHOLD = 85.0
-DEFAULT_WIDTH = 150
+DEFAULT_CONSOLE_WRAP_WIDTH = 150
+
 
 @dataclass(frozen=True, slots=True)
 class ValidatedHarnessArgs:
@@ -39,6 +40,7 @@ class ValidatedHarnessArgs:
 @dataclass(slots=True)
 class SourceFileCoverageRecord:
     source_file_path: str
+    relative_source_file_path: str
 
     executed_lines: set[int]
     missing_lines: set[int]
@@ -95,17 +97,23 @@ class SourceFileCoverageRecord:
 
 
 class TestFileStatus(Enum):
+    __test__ = False
     PROCESSED = "processed"
     NOT_PROCESSED = "not_processed"
     NO_TESTS_COLLECTED = "no_tests_collected"
 
+
 @dataclass(slots=True)
 class TestFileRecord:
+    __test__ = False
     test_file_path: str
-    exit_code: int
+    test_file_exit_code: int
     duration_seconds: float
     status: TestFileStatus
+    not_processed_reason: str | None
     file_error_message: str | None
+    warning_count: int
+    warning_messages: list[str]
 
     passed_test_function_count: int
     failed_test_function_count: int
@@ -177,8 +185,9 @@ class AggregateTestSummary:
     total_coverage_pct: float
 
     problem_test_files: list[ProblemTestFileRecord]
-    not_processed_test_files: list[str]
+    not_processed_test_files: list[NotProcessedTestFileRecord]
     no_tests_collected_test_files: list[str]
+    warning_test_files: list[WarningTestFileRecord]
     source_file_coverage_records: list[SourceFileCoverageRecord]
 
     @property
@@ -188,6 +197,18 @@ class AggregateTestSummary:
     @property
     def no_tests_collected_test_file_count(self) -> int:
         return len(self.no_tests_collected_test_files)
+
+    @property
+    def warning_test_file_count(self) -> int:
+        return len(self.warning_test_files)
+
+    @property
+    def warning_count(self) -> int:
+        return sum(
+            record.warning_count
+            for record in self.warning_test_files
+        )
+
 
 
 @dataclass(slots=True)
@@ -252,6 +273,19 @@ class ProblemTestFileRecord:
     @property
     def has_problems(self) -> bool:
         return self.problem_count > 0
+
+
+@dataclass(frozen=True, slots=True)
+class NotProcessedTestFileRecord:
+    relative_test_file_path: str
+    not_processed_reason: str
+    file_error_message: str
+
+
+@dataclass
+class WarningTestFileRecord:
+    relative_test_file_path: str
+    warning_count: int
 
 
 @dataclass(slots=True)

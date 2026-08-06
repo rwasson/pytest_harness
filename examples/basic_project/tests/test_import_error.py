@@ -18,7 +18,7 @@ subproject.
 
 from __future__ import annotations
 
-from sample_package.calculator import ad
+from sample_package.helpers.arithmetic_functions import ad
 
 
 def test_01_adds_positive_numbers() -> None:

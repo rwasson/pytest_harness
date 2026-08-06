@@ -1,12 +1,11 @@
 """
 dashboard_builder.py
 
-Last edited: 2026-07-16
+Last edited: 2026-08-05
 """
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 
 from rich.markup import escape
 
@@ -180,6 +179,7 @@ def _build_dashboard(
             styles=styles,
         ))
 
+
     return "\n".join(lines)
 
 
@@ -193,17 +193,16 @@ def _build_test_file_problem_lines(
 
     if summary_data.not_processed_test_files:
         heading = (
-            "Test files not processed (check imports) "
+            "Test files not processed "
             f"({summary_data.not_processed_test_file_count}):"
         )
 
-        lines.extend(["", _styled(heading, style=styles.problem,)])
-        lines.extend(
-            "    "
-            + _styled_field(test_file_name, style=styles.file_name)
-            for test_file_name
-            in summary_data.not_processed_test_files
+        lines.extend(["", _styled(heading, style=styles.problem)])
+        lines.extend(("    " + _styled_field(record.relative_test_file_path, style=styles.file_name)
+                + " " + _styled_field(f"({record.not_processed_reason})", style=styles.muted))
+            for record in summary_data.not_processed_test_files
         )
+
 
     if summary_data.no_tests_collected_test_files:
         heading = (
@@ -212,18 +211,38 @@ def _build_test_file_problem_lines(
         )
 
         lines.extend(["", _styled(heading, style=styles.problem)])
-        lines.extend(
-            "    "
-            + _styled_field(
-                test_file_name,
-                style=styles.file_name,
-            )
-            for test_file_name
+        lines.extend("    " + _styled_field(relative_test_file_path, style=styles.file_name)
+            for relative_test_file_path
             in summary_data.no_tests_collected_test_files
         )
 
-    return lines
+    if summary_data.warning_test_files:
+        heading = (
+            "Test files with warnings (details in individual test-file logs) "
+            f"({summary_data.warning_test_file_count}):"
+        )
 
+        lines.extend(["", _styled(heading, style=styles.warning)])
+        for record in summary_data.warning_test_files:
+            warning_word = (
+                "warning"
+                if record.warning_count == 1
+                else "warnings"
+            )
+            lines.append(
+                "    "
+                + _styled_field(
+                    record.relative_test_file_path,
+                    style=styles.file_name,
+                )
+                + " "
+                + _styled_field(
+                    f"({record.warning_count} {warning_word})",
+                    style=styles.muted,
+                )
+            )
+
+    return lines
 
 
 def _build_test_function_problem_lines(
@@ -244,7 +263,6 @@ def _build_test_function_problem_lines(
         if problem_file_count == 1
         else "files"
     )
-
     lines = [
         "",
         (
@@ -342,23 +360,20 @@ def _build_test_function_problem_lines(
 
     return lines
 
+
 def _build_source_file_coverage_lines(
     *,
     summary_data: AggregateTestSummary,
     styles: _SummaryStyles,
 ) -> list[str]:
-    visible_records = [
-        record
-        for record in summary_data.source_file_coverage_records
-        if record.total_line_count > 0
-    ]
+    records = summary_data.source_file_coverage_records
 
-    if not visible_records:
+    if not records:
         return []
 
     coverage_values = [
         f"{record.statement_coverage_pct:.0f}%"
-        for record in visible_records
+        for record in records
     ]
 
     count_values = [
@@ -367,7 +382,7 @@ def _build_source_file_coverage_lines(
             f"/"
             f"{record.total_line_count}"
         )
-        for record in visible_records
+        for record in records
     ]
 
     column_width = max(
@@ -381,7 +396,6 @@ def _build_source_file_coverage_lines(
     header_style = styles.header
 
     top_header_line = (
-        # f"{'':<{column_width}}  "
         f"{_styled(f"{'Source file':<{column_width}}", style=header_style)}  "
         f"{_styled(f"{'Executed/':<{column_width}}", style=header_style)}  "
         f"{_styled('Source', style=header_style)}"
@@ -408,14 +422,13 @@ def _build_source_file_coverage_lines(
     ]
 
     for record, coverage_text, count_text in zip(
-        visible_records,
+        records,
         coverage_values,
         count_values,
         strict=True,
     ):
-        source_file_name = escape(
-            Path(record.source_file_path).name
-        )
+
+        source_file_name = escape(record.relative_source_file_path)
 
         lines.append(
             f"{coverage_text:<{column_width}}  "
@@ -424,6 +437,3 @@ def _build_source_file_coverage_lines(
         )
 
     return lines
-
-
-

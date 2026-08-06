@@ -20,8 +20,8 @@ from rich.text import Text
 
 from pytest_harness.arg_resolver import _resolve_harness_args
 from pytest_harness.constants_and_classes import (
+    DEFAULT_CONSOLE_WRAP_WIDTH,
     DEFAULT_COVERAGE_WARNING_THRESHOLD,
-    DEFAULT_WIDTH,
     TestFileRecord,
 )
 from pytest_harness.dashboard_builder import _build_dashboard
@@ -43,7 +43,7 @@ def pytest_harness(
     show_source_file_coverage: bool = True,
     log_keep: int | None = None,
     console_theme: str = "dark",
-    console_wrap_width: int = DEFAULT_WIDTH,
+    console_wrap_width: int = DEFAULT_CONSOLE_WRAP_WIDTH,
     show_skipped_and_xfailed: bool = False,
     debug_pytest_harness: bool = False,
 ) -> NoReturn:
@@ -259,7 +259,7 @@ def pytest_harness(
     there.
 
     """
-
+    exit_code = 1
     runner_results: list[TestFileRecord] = []
 
     args = _resolve_harness_args(
@@ -289,12 +289,14 @@ def pytest_harness(
         console_wrap_width=args.console_wrap_width,
         log_prefix="off",
     )
-    theme = log.session_config.console_theme_dict
 
     try:
+        theme = log.session_config.console_theme_dict
+
         output_dir_path = log.output_dir_path
         if output_dir_path is None:
-            raise RuntimeError("Logduo did not create an output directory.")
+            raise RuntimeError("PYTEST HARNESS INTERNAL ERROR: "
+                               "Logduo did not create an output directory.")
 
         relative_test_file_paths = _resolve_test_file_paths(
             test_file_dir_path=args.test_file_dir,
@@ -309,23 +311,18 @@ def pytest_harness(
         )
 
         if args.debug_pytest_harness:
-            print("\nDEBUG: Exact test files pytest_harness will run:")
+            print("\nDEBUG: --- List of test files pytest_harness will run ---")
             for index, relative_test_file_path in enumerate(relative_test_file_paths, start=1):
                 print(f"    {index:>2}. {relative_test_file_path}")
-            print(
-                f"DEBUG: Exact test-file count: "
-                f"{len(relative_test_file_paths)}\n"
-            )
+
 
         with tempfile.TemporaryDirectory(
             prefix="coverage_",
             dir=output_dir_path,
         ) as coverage_temp_dir_name:
-            tested_code_dir_path = Path(coverage_temp_dir_name)
-            coverage_config_file_path = (
-                tested_code_dir_path / "pytest_harness_coveragerc"
-            )
 
+            coverage_temp_dir_path = Path(coverage_temp_dir_name)
+            coverage_config_file_path = coverage_temp_dir_path / "pytest_harness_coveragerc"
             coverage_config_file_path.write_text(
                 "[run]\n"
                 "branch = true\n"
@@ -346,56 +343,24 @@ def pytest_harness(
                 print(".", end="", flush=True)
 
                 test_file_path = args.test_file_dir / relative_test_file_path
-
-                if not test_file_path.exists():
-                    raise RuntimeError(
-                        "Error in pytest_harness_runner.py\n"
-                        "Unrecognized test file:\n"
-                        f"    {relative_test_file_path}"
-                    )
-
-                if not test_file_path.is_file():
-                    raise RuntimeError(
-                        "Expected file but found something else:\n"
-                        f"    {test_file_path}"
-                    )
-
-                try:
-                    test_file_path.read_text(encoding="utf-8")
-                except OSError as e:
-                    raise RuntimeError(
-                        "Unable to read test file:\n"
-                        f"    {test_file_path}\n"
-                        f"    {e}"
-                    ) from e
-
-                # Keep generated logs flat while preserving nested test-file identity.
-                test_file_safe_stem = (
-                    str(relative_test_file_path.with_suffix(""))
-                    .replace("/", "__")
-                    .replace("\\", "__")
-                )
-
+                test_file_safe_stem = _build_safe_stem(relative_test_file_path)
                 test_file_log_path = output_dir_path / f"{test_file_safe_stem}.log"
-                coverage_data_file_path = (
-                    tested_code_dir_path / f".coverage.{test_file_safe_stem}"
-                )
+                coverage_data_file_path = coverage_temp_dir_path / f".coverage.{test_file_safe_stem}"
 
                 test_file_result = _build_test_file_record(
                     test_file_path=test_file_path,
                     test_file_log_path=test_file_log_path,
                     tested_code_dir=args.tested_code_dir,
                     coverage_data_file_path=coverage_data_file_path,
-                    # extra_pytest_args=["-q"],    # "-q" already called, extra_pytest_args[] reserved for future args
+                    # extra_pytest_args=None,
                     coverage_config_file_path=coverage_config_file_path,
                     individual_logs=args.individual_logs,
                     debug_pytest_harness=args.debug_pytest_harness,
                 )
-
                 runner_results.append(test_file_result)
 
             combined_coverage_result = _combine_coverage_data_files(
-                tested_code_dir_path=tested_code_dir_path,
+                coverage_temp_dir_path=coverage_temp_dir_path,
                 tested_code_dir=args.tested_code_dir,
             )
 
@@ -405,6 +370,7 @@ def pytest_harness(
             summary_data = _build_summary_data(
                 pytest_test_file_records=runner_results,
                 combined_coverage_result=combined_coverage_result,
+                test_file_dir=args.test_file_dir,
                 show_skipped_and_xfailed=args.show_skipped_and_xfailed,
                 debug_pytest_harness=args.debug_pytest_harness,
             )
@@ -416,7 +382,6 @@ def pytest_harness(
                 show_source_file_coverage=args.show_source_file_coverage,
                 theme=theme,
             )
-
             log(Text.from_markup(summary_text))
 
             run_failed = (
@@ -427,9 +392,32 @@ def pytest_harness(
                 or summary_data.no_tests_collected_test_file_count > 0
             )
 
-            exit_code = 1 if run_failed else 0
+            if not run_failed:
+                exit_code = 0
 
     finally:
+        exit_description = "no errors detected" if exit_code == 0 else "errors detected"
+        log("")
+        log("")
+        log(f"Pytest Harness exit code: {exit_code} ({exit_description})")
         log.close()
 
     raise SystemExit(exit_code)
+
+
+# === Internal helpers =========================================================
+
+def _build_safe_stem(
+    file_path: Path,
+) -> str:
+    """
+    Return a flat artifact stem that preserves nested file identity.
+    Join path components with "__" to create a flat artifact stem (instead of '\' or '/').
+
+    Example:
+        Path("unit/integration/test_math.py")
+        -> "unit__integration__test_math"
+
+    Works with native Windows, macOS, and Linux paths.
+    """
+    return "__".join(file_path.with_suffix("").parts)

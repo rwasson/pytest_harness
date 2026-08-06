@@ -167,6 +167,15 @@ def _require_existing_directory(
             f"    {path}"
         )
 
+    try:
+        next(path.iterdir(), None)
+    except OSError as exc:
+        raise RuntimeError(
+            f"{name} cannot be read:\n"
+            f"    {path}\n"
+            f"    {exc}"
+        ) from exc
+
 
 def _validate_selector_list(
     value: list[str | Path] | None,
@@ -267,25 +276,30 @@ def _validate_log_keep(
 def _validate_console_theme(
     value: str,
 ) -> str:
-
     if not isinstance(value, str):
-        raise TypeError('console_theme must be "dark" or "light".')
-
-    value_lower = value.lower()
-
-    if value_lower not in {"dark", "light"}:
-        _PRECONFIG_CONSOLE = Console(force_terminal=True)
-        warning_text = Text()
-        warning_text.append("WARNING:", style="bold yellow")
-        warning_text.append(
-            ' console_theme must be either "dark" or "light" (default ="dark").'
+        raise TypeError(
+            'console_theme must be "dark" or "light".'
         )
 
-        _PRECONFIG_CONSOLE.print(warning_text)
+    normalized_value = value.strip().lower()
 
-        value_lower = "dark"
+    if normalized_value not in {"dark", "light"}:
+        preconfig_console = Console(force_terminal=True)
 
-    return value_lower
+        warning_text = Text()
+        warning_text.append(
+            "WARNING:",
+            style="bold yellow",
+        )
+        warning_text.append(
+            ' console_theme must be either "dark" or "light" '
+            '(default="dark").'
+        )
+
+        preconfig_console.print(warning_text)
+        normalized_value = "dark"
+
+    return normalized_value
 
 
 def _validate_console_wrap_width(
@@ -298,3 +312,4 @@ def _validate_console_wrap_width(
         raise ValueError(f"console_wrap_width must be at least {MIN_CONSOLE_WRAP_WIDTH}.")
 
     return value
+

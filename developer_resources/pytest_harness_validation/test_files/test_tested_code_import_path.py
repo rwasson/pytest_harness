@@ -20,8 +20,8 @@ class _FakeLog:
     def join(self) -> None:
         pass
 
+    @staticmethod
     def new_logger(
-        self,
         *args: Any,
         **kwargs: Any,
     ) -> Callable[[str], None]:
@@ -125,9 +125,9 @@ def test_import_environment() -> None:
         individual_logs=False,
     )
 
-    assert record.exit_code == 0, (
+    assert record.test_file_exit_code == 0, (
         "Nested pytest subprocess failed.\n\n"
-        f"Exit code: {record.exit_code}\n"
+        f"Exit code: {record.test_file_exit_code}\n"
         f"Status: {record.status}\n"
         f"Error:\n{record.file_error_message}"
     )
