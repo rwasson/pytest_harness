@@ -123,6 +123,7 @@ def test_import_environment() -> None:
         coverage_data_file_path=coverage_work_dir / ".coverage.import_path",
         coverage_config_file_path=coverage_config_file_path,
         individual_logs=False,
+        debug_pytest_harness=True,
     )
 
     assert record.test_file_exit_code == 0, (
