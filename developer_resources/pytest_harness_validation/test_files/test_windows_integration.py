@@ -19,11 +19,11 @@ def test_pytest_harness_runs_with_windows_temp_paths(
     # --- Arrange: temporary project ---
     project_dir = tmp_path / "sample project"
     package_dir = project_dir / "sample_package"
-    test_dir = project_dir / "tests"
+    test_file_dir = project_dir / "tests"
     log_dir = project_dir / "test logs"
 
     package_dir.mkdir(parents=True)
-    test_dir.mkdir(parents=True)
+    test_file_dir.mkdir(parents=True)
     log_dir.mkdir(parents=True)
 
     (package_dir / "__init__.py").write_text(
@@ -37,7 +37,7 @@ def test_pytest_harness_runs_with_windows_temp_paths(
         encoding="utf-8",
     )
 
-    (test_dir / "test_calculator.py").write_text(
+    (test_file_dir / "test_calculator.py").write_text(
         "from sample_package.calculator import add\n\n"
         "\n"
         "def test_add() -> None:\n"
@@ -54,7 +54,7 @@ def test_pytest_harness_runs_with_windows_temp_paths(
         "PROJECT_DIR = Path(__file__).resolve().parent\n\n"
         "pytest_harness(\n"
         "    test_dir=PROJECT_DIR / 'tests',\n"
-        "    coverage_dir=PROJECT_DIR / 'sample_package',\n"
+        "    tested_code_dir=PROJECT_DIR / 'sample_package',\n"
         "    log_dir=PROJECT_DIR / 'test logs',\n"
         ")\n",
         encoding="utf-8",
