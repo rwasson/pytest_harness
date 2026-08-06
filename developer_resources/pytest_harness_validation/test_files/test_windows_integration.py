@@ -53,7 +53,7 @@ def test_pytest_harness_runs_with_windows_temp_paths(
         "\n"
         "PROJECT_DIR = Path(__file__).resolve().parent\n\n"
         "pytest_harness(\n"
-        "    test_dir=PROJECT_DIR / 'tests',\n"
+        "    test_file_dir=PROJECT_DIR / 'tests',\n"
         "    tested_code_dir=PROJECT_DIR / 'sample_package',\n"
         "    log_dir=PROJECT_DIR / 'test logs',\n"
         ")\n",
