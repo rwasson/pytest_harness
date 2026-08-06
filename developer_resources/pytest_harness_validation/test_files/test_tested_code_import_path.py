@@ -143,15 +143,6 @@ def test_import_environment() -> None:
     print(record.test_file_path)
     print()
 
-    # TODO temp
-    raise AssertionError(
-        "\n\nWINDOWS NESTED PYTEST DIAGNOSTIC\n"
-        f"Exit code: {record.test_file_exit_code}\n"
-        f"Status: {record.status}\n"
-        f"Reason: {record.not_processed_reason}\n"
-        f"Error:\n{record.file_error_message}\n"
-    )
-
     assert record.test_file_exit_code == 0, (
         "Nested pytest subprocess failed.\n\n"
         f"Exit code: {record.test_file_exit_code}\n"
