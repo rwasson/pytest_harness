@@ -71,7 +71,6 @@ def test_01_pytest_harness_runs_with_windows_temp_paths(
         capture_output=True,
         text=True,
         encoding="utf-8",
-        test_function_timeout=60,
         check=False,
     )
 
