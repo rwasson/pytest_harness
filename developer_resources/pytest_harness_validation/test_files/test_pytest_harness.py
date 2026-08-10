@@ -1,7 +1,9 @@
 """
 test_pytest_harness.py
 
-Last edited: 2026-7-16
+Test top-level pytest_harness orchestration.
+
+Last edited: 2026-08-07
 """
 
 from __future__ import annotations
@@ -12,22 +14,27 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
-
-module: ModuleType = import_module("pytest_harness.pytest_harness")
-
-
 from test_helpers.helpers import _run_harness
 
 from pytest_harness.constants_and_classes import (
     CombinedCoverageResult,
     TestFileRecord,
     TestFileStatus,
+    TestFunctionRecord,
 )
+
+module: ModuleType = import_module(
+    "pytest_harness.pytest_harness"
+)
+
 
 # === Fakes ===================================================================
 
 class _FakeLog:
-    def __init__(self, output_dir_path: Path) -> None:
+    def __init__(
+        self,
+        output_dir_path: Path,
+    ) -> None:
         self.output_dir_path = output_dir_path
         self.configure_calls: list[dict[str, Any]] = []
         self.messages: list[str] = []
@@ -54,14 +61,22 @@ class _FakeLog:
             }
         )
 
-    def configure(self, **kwargs: Any) -> None:
+    def configure(
+        self,
+        **kwargs: Any,
+    ) -> None:
         self.configure_calls.append(kwargs)
 
-    def __call__(self, message: object) -> None:
-        # Rich Text converts to its plain-text representation with str().
+    def __call__(
+        self,
+        message: object,
+    ) -> None:
         self.messages.append(str(message))
 
-    def warning(self, message: object) -> None:
+    def warning(
+        self,
+        message: object,
+    ) -> None:
         self.warnings.append(str(message))
 
     def close(self) -> None:
@@ -75,7 +90,9 @@ class _FakeTemporaryDirectory:
         prefix: str,
         temp_dir: Path,
     ) -> None:
-        self.name = str(Path(temp_dir) / f"{prefix}fake")
+        self.name = str(
+            temp_dir / f"{prefix}fake"
+        )
         Path(self.name).mkdir(parents=True)
         self.cleaned = False
 
@@ -88,9 +105,6 @@ class _FakeTemporaryDirectory:
         exc_value: object,
         traceback: object,
     ) -> None:
-        self.cleanup()
-
-    def cleanup(self) -> None:
         self.cleaned = True
 
 
@@ -129,7 +143,10 @@ def test_01_rejects_missing_required_input_directories(
     if missing_name != "source":
         tested_code_dir.mkdir()
 
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(
+        RuntimeError,
+        match=message,
+    ):
         module.pytest_harness(
             test_file_dir=test_file_dir,
             log_dir=log_dir,
@@ -143,57 +160,27 @@ def test_02_creates_missing_log_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     test_file_dir = tmp_path / "tests"
-    log_dir = tmp_path / "new" / "logs"
     tested_code_dir = tmp_path / "src"
+    log_dir = tmp_path / "new" / "logs"
+    output_dir = tmp_path / "fake_output"
 
     test_file_dir.mkdir()
     tested_code_dir.mkdir()
+    output_dir.mkdir()
 
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
+    (test_file_dir / "test_one.py").write_text(
         "def test_one():\n"
         "    pass\n",
         encoding="utf-8",
     )
 
-    # log.output_dir_path must exist after log.configure() would normally run.
-    output_dir = tmp_path / "fake_output"
-    output_dir.mkdir()
     fake_log = _FakeLog(output_dir)
 
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(kwargs["test_file_path"]),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _successful_summary(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        lambda **kwargs: "summary",
+    _install_successful_pipeline(
+        monkeypatch=monkeypatch,
+        fake_log=fake_log,
+        output_dir=output_dir,
+        selected_test_files=[Path("test_one.py")],
     )
 
     _run_harness(
@@ -206,28 +193,26 @@ def test_02_creates_missing_log_directory(
     assert fake_log.close_call_count == 1
 
 
-# --- test_03_orchestrates_test_run_and_builds_summary() -----------------------
-def test_03_orchestrates_test_run_and_builds_summary(
+# --- test_03_orchestrates_selected_test_files() -------------------------------
+def test_03_orchestrates_selected_test_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-
-    # --- Arrange: project directories ---
-    test_file_dir = (tmp_path / "tests").resolve()
-    log_dir = (tmp_path / "logs").resolve()
-    tested_code_dir = (tmp_path / "src").resolve()
-    output_dir = log_dir / "pytest_harness" / "run"
-
-    for path in (
+    (
         test_file_dir,
         log_dir,
         tested_code_dir,
         output_dir,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
+    ) = _make_required_dirs(tmp_path)
 
-    first_test_file = test_file_dir / "test_one.py"
-    second_test_file = test_file_dir / "nested" / "test_two.py"
+    first_test_file = (
+        test_file_dir / "test_one.py"
+    )
+    second_test_file = (
+        test_file_dir
+        / "nested"
+        / "test_two.py"
+    )
 
     second_test_file.parent.mkdir()
 
@@ -242,23 +227,35 @@ def test_03_orchestrates_test_run_and_builds_summary(
         encoding="utf-8",
     )
 
-    # --- Arrange: fakes and captured calls ---
-
     fake_log = _FakeLog(output_dir)
-
     fake_temp_dir = _FakeTemporaryDirectory(
         prefix="coverage_",
         temp_dir=output_dir,
     )
 
-    monkeypatch.setattr(module, "log", fake_log)
+    record_builder_calls: list[
+        dict[str, Any]
+    ] = []
+    combine_calls: list[
+        dict[str, Any]
+    ] = []
+    summary_calls: list[
+        dict[str, Any]
+    ] = []
+    dashboard_calls: list[
+        dict[str, Any]
+    ] = []
 
+    monkeypatch.setattr(
+        module,
+        "log",
+        fake_log,
+    )
     monkeypatch.setattr(
         module.tempfile,
         "TemporaryDirectory",
         lambda **kwargs: fake_temp_dir,
     )
-
     monkeypatch.setattr(
         module,
         "_resolve_test_file_paths",
@@ -268,71 +265,59 @@ def test_03_orchestrates_test_run_and_builds_summary(
         ],
     )
 
-    record_builder_calls: list[dict[str, Any]] = []
-    coverage_config_existence: list[bool] = []
-
-    def fake_build_test_file_record(
+    def fake_record_builder(
         **kwargs: Any,
     ) -> TestFileRecord:
         record_builder_calls.append(kwargs)
-        coverage_config_existence.append(
-            kwargs["coverage_config_file_path"].exists()
-        )
-        return _record(kwargs["test_file_path"])
+        return _processed_record(**kwargs)
 
     monkeypatch.setattr(
         module,
         "_build_test_file_record",
-        fake_build_test_file_record,
+        fake_record_builder,
     )
 
     combined_result = _empty_combined_result(
         total_coverage_pct=92.0,
     )
 
-    captured_combine_args: dict[str, Any] = {}
-
-    def fake_combine_coverage(
+    def fake_combine(
         **kwargs: Any,
     ) -> CombinedCoverageResult:
-        captured_combine_args.update(kwargs)
+        combine_calls.append(kwargs)
         return combined_result
 
     monkeypatch.setattr(
         module,
         "_combine_coverage_data_files",
-        fake_combine_coverage,
+        fake_combine,
     )
 
     summary_result = _successful_summary()
-    captured_summary_args: dict[str, Any] = {}
 
-    def fake_build_summary_data(
+    def fake_summary(
         **kwargs: Any,
     ) -> object:
-        captured_summary_args.update(kwargs)
+        summary_calls.append(kwargs)
         return summary_result
 
     monkeypatch.setattr(
         module,
         "_build_summary_data",
-        fake_build_summary_data,
+        fake_summary,
     )
 
-    captured_table_args: dict[str, Any] = {}
-
-    def fake_build_dashboard(
+    def fake_dashboard(
         **kwargs: Any,
     ) -> str:
-        captured_table_args.update(kwargs)
+        dashboard_calls.append(kwargs)
         return "SUMMARY TEXT"
 
     monkeypatch.setattr(
         module,
         "_build_dashboard",
-        fake_build_dashboard,
+        fake_dashboard,
     )
-
 
     _run_harness(
         test_file_dir=test_file_dir,
@@ -340,80 +325,148 @@ def test_03_orchestrates_test_run_and_builds_summary(
         tested_code_dir=tested_code_dir,
         include_list=["test_one", "nested"],
         exclude_list=["ignored"],
-        individual_logs=True,
+        test_file_logs=True,
         coverage_warning_threshold=85.0,
         show_source_file_coverage=True,
     )
 
-    # --- Assert: Logduo configuration ---
+    # --- Logduo configuration ---
     assert len(fake_log.configure_calls) == 1
 
     configure_args = fake_log.configure_calls[0]
 
     assert configure_args["log_dir_path"] == log_dir
     assert configure_args["log_file_layout"] == "run"
+    assert configure_args["console_verbosity"] == 3
     assert configure_args["log_verbosity"] == 3
     assert configure_args["keep"] is None
     assert configure_args["write_config_table"] is False
     assert configure_args["console_prefix"] == "off"
-    assert configure_args["console_wrap_width"] == 150
     assert configure_args["log_prefix"] == "off"
+    assert configure_args["console_wrap_width"] == 150
+    assert configure_args["log_wrap_width"] == 150
 
-    # --- Assert: each selected test file was run ---
+    # --- One record-builder call per selected file ---
     assert len(record_builder_calls) == 2
 
     first_call = record_builder_calls[0]
     second_call = record_builder_calls[1]
 
-    assert first_call["test_file_path"] == first_test_file
-    assert first_call["test_file_log_path"].name == "test_one.log"
+    assert (
+        first_call["test_file_path"]
+        == first_test_file
+    )
+    assert (
+        first_call["test_file_label"]
+        == "test_one.py"
+    )
+    assert (
+        first_call["test_file_log_path"].name
+        == "test_one.log"
+    )
+    assert (
+        first_call["progress_file_path"].name
+        == "progress_test_one.txt"
+    )
 
-    assert second_call["test_file_path"] == second_test_file
+    assert (
+        second_call["test_file_path"]
+        == second_test_file
+    )
+    assert (
+        second_call["test_file_label"]
+        == "nested/test_two.py"
+    )
     assert (
         second_call["test_file_log_path"].name
         == "nested__test_two.log"
     )
+    assert (
+        second_call["progress_file_path"].name
+        == "progress_nested__test_two.txt"
+    )
 
     for call in record_builder_calls:
-        assert call["tested_code_dir"] == tested_code_dir
-        assert call["individual_logs"] is True
-        assert call["debug_pytest_harness"] is False
+        assert (
+            call["tested_code_dir"]
+            == tested_code_dir
+        )
+        assert call["test_file_logs"] is True
+        assert (
+            call["debug_harness"]
+            is False
+        )
+        assert (
+            call["coverage_config_file_path"].exists()
+            is True
+        )
 
-    # The config file existed while each test-file record was built.
-    assert coverage_config_existence == [True, True]
+    # --- Coverage combination ---
+    assert len(combine_calls) == 1
 
-    # --- Assert: coverage was combined ---
-    assert captured_combine_args["coverage_temp_dir_path"] == Path(fake_temp_dir.name)
-    assert captured_combine_args["tested_code_dir"] == tested_code_dir
+    assert (
+        combine_calls[0]["coverage_temp_dir_path"]
+        == Path(fake_temp_dir.name)
+    )
+    assert (
+        combine_calls[0]["tested_code_dir"]
+        == tested_code_dir
+    )
+
+    # --- Records reached summary builder unchanged ---
+    assert len(summary_calls) == 1
+
+    records = summary_calls[0][
+        "test_file_records"
+    ]
+
+    assert len(records) == 2
+
+    assert (
+        records[0].test_file_path
+        == first_test_file
+    )
+    assert (
+        records[0].test_file_label
+        == "test_one.py"
+    )
+
+    assert (
+        records[1].test_file_path
+        == second_test_file
+    )
+    assert (
+        records[1].test_file_label
+        == "nested/test_two.py"
+    )
+
+    assert (
+        summary_calls[0][
+            "combined_coverage_result"
+        ]
+        is combined_result
+    )
+
+    # --- Summary reached dashboard ---
+    assert len(dashboard_calls) == 1
+    assert dashboard_calls[0]["summary_data"] is summary_result
+    assert dashboard_calls[0]["coverage_warning_threshold"] == 85.0
+    assert dashboard_calls[0]["show_source_file_coverage"] is True
+    assert dashboard_calls[0]["dashboard_width"] == 150
+
+    # --- Cleanup/reporting ---
     assert fake_temp_dir.cleaned is True
-
-    # --- Assert: aggregate summary was built ---
-    test_file_records = captured_summary_args["pytest_test_file_records"]
-
-    assert len(test_file_records) == 2
-    assert test_file_records[0].test_file_path == str(first_test_file)
-    assert test_file_records[1].test_file_path == str(second_test_file)
-
-    assert (captured_summary_args["combined_coverage_result"] is combined_result)
-    assert (captured_summary_args["show_skipped_and_xfailed"] is False)
-    assert (captured_summary_args["debug_pytest_harness"] is False)
-
-    # --- Assert: reporting options reached the table builder ---
-    assert captured_table_args["summary_data"] is summary_result
-    assert (captured_table_args["coverage_warning_threshold"] == 85.0)
-    assert (captured_table_args["show_source_file_coverage"] is True)
-    assert (captured_table_args["show_skipped_and_xfailed"] is False)
-    assert (captured_table_args["theme"] is fake_log.session_config.console_theme_dict)
-
-    # --- Assert: final summary and cleanup---
     assert "SUMMARY TEXT" in fake_log.messages
-    assert "Pytest Harness exit code: 0 (no errors detected)" in fake_log.messages
-    assert fake_log.warnings == []
+    assert (
+        "Pytest Harness exit code: 0 "
+        "(no test run errors detected)"
+        in fake_log.messages
+    )
     assert fake_log.close_call_count == 1
 
 
-# --- test_04_passes_coverage_warning_threshold_to_summary_builder() -----------
-def test_04_passes_coverage_warning_threshold_to_summary_builder(
+# --- test_04_passes_log_and_reporting_options() -------------------------------
+def test_04_passes_log_and_reporting_options(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -424,8 +477,7 @@ def test_04_passes_coverage_warning_threshold_to_summary_builder(
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
+    (test_file_dir / "test_one.py").write_text(
         "def test_one():\n"
         "    pass\n",
         encoding="utf-8",
@@ -433,149 +485,16 @@ def test_04_passes_coverage_warning_threshold_to_summary_builder(
 
     fake_log = _FakeLog(output_dir)
 
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(
-            kwargs["test_file_path"]
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(
-            total_coverage_pct=84.0,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _successful_summary(),
-    )
+    dashboard_calls: list[
+        dict[str, Any]
+    ] = []
 
-    table_calls: list[dict[str, Any]] = []
-
-    def fake_build_dashboard(
-        **kwargs: Any,
-    ) -> str:
-        table_calls.append(kwargs)
-        return (
-            "Coverage\n"
-            "    Total: 84%\n\n"
-            "WARNING: Total coverage (84%) "
-            "is below warning threshold 85%."
-        )
-
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        fake_build_dashboard,
-    )
-
-    _run_harness(
-        test_file_dir=test_file_dir,
-        log_dir=log_dir,
-        tested_code_dir=tested_code_dir,
-        coverage_warning_threshold=85.0,
-    )
-
-    assert table_calls[0]["coverage_warning_threshold"] == 85.0
-
-
-    assert len(fake_log.messages) == 4
-    assert "84%" in fake_log.messages[0]
-    assert "85%" in fake_log.messages[0]
-    assert fake_log.messages[1:3] == ["", ""]
-    assert (
-            fake_log.messages[3]
-            == "Pytest Harness exit code: 0 (no errors detected)"
-    )
-
-    # Warning is embedded in the summary rather than logged afterward.
-    assert fake_log.warnings == []
-
-
-# --- test_05_allows_coverage_warning_to_be_disabled() -------------------------
-def test_05_allows_coverage_warning_to_be_disabled(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    (
-        test_file_dir,
-        log_dir,
-        tested_code_dir,
-        output_dir,
-    ) = _make_required_dirs(tmp_path)
-
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
-        "def test_one():\n"
-        "    pass\n",
-        encoding="utf-8",
-    )
-
-    fake_log = _FakeLog(output_dir)
-
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(
-            kwargs["test_file_path"]
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(
-            total_coverage_pct=10.0,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _successful_summary(),
-    )
-
-    table_calls: list[dict[str, Any]] = []
-
-    def fake_build_dashboard(
-        **kwargs: Any,
-    ) -> str:
-        table_calls.append(kwargs)
-        return "summary"
-
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        fake_build_dashboard,
+    _install_successful_pipeline(
+        monkeypatch=monkeypatch,
+        fake_log=fake_log,
+        output_dir=output_dir,
+        selected_test_files=[Path("test_one.py")],
+        dashboard_calls=dashboard_calls,
     )
 
     _run_harness(
@@ -583,85 +502,28 @@ def test_05_allows_coverage_warning_to_be_disabled(
         log_dir=log_dir,
         tested_code_dir=tested_code_dir,
         coverage_warning_threshold=None,
-    )
-
-    assert (
-        table_calls[0]["coverage_warning_threshold"]
-        is None
-    )
-
-
-# --- test_06_passes_log_keep_to_logduo() --------------------------------------
-def test_06_passes_log_keep_to_logduo(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    (
-        test_file_dir,
-        log_dir,
-        tested_code_dir,
-        output_dir,
-    ) = _make_required_dirs(tmp_path)
-
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
-        "def test_one():\n"
-        "    pass\n",
-        encoding="utf-8",
-    )
-
-    fake_log = _FakeLog(output_dir)
-
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(
-            kwargs["test_file_path"]
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _successful_summary(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        lambda **kwargs: "summary",
-    )
-
-    _run_harness(
-        test_file_dir=test_file_dir,
-        log_dir=log_dir,
-        tested_code_dir=tested_code_dir,
+        show_source_file_coverage=False,
+        show_skipped_and_xfailed=True,
         log_keep=7,
+        console_theme="light",
+        dashboard_width=120,
     )
 
-    assert len(fake_log.configure_calls) == 1
-    assert fake_log.configure_calls[0]["keep"] == 7
+    configure_args = fake_log.configure_calls[0]
+
+    assert configure_args["keep"] == 7
+    assert configure_args["console_theme"] == "light"
+    assert configure_args["console_wrap_width"] == 120
+    assert configure_args["log_wrap_width"] == 120
+
+    assert dashboard_calls[0]["coverage_warning_threshold"] is None
+    assert dashboard_calls[0]["show_source_file_coverage"] is False
+    assert dashboard_calls[0]["show_skipped_and_xfailed"] is True
+    assert dashboard_calls[0]["dashboard_width"] == 120
 
 
-# --- test_07_debug_mode_lists_selected_test_files() ---------------------------
-def test_07_debug_mode_lists_selected_test_files(
+# --- test_05_debug_mode_lists_selected_test_files() ---------------------------
+def test_05_debug_mode_lists_selected_test_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -673,8 +535,7 @@ def test_07_debug_mode_lists_selected_test_files(
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
+    (test_file_dir / "test_one.py").write_text(
         "def test_one():\n"
         "    pass\n",
         encoding="utf-8",
@@ -682,58 +543,32 @@ def test_07_debug_mode_lists_selected_test_files(
 
     fake_log = _FakeLog(output_dir)
 
-    monkeypatch.setattr(module, "log", fake_log)
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(
-            kwargs["test_file_path"]
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _successful_summary(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        lambda **kwargs: "summary",
+    _install_successful_pipeline(
+        monkeypatch=monkeypatch,
+        fake_log=fake_log,
+        output_dir=output_dir,
+        selected_test_files=[Path("test_one.py")],
     )
 
     _run_harness(
         test_file_dir=test_file_dir,
         log_dir=log_dir,
         tested_code_dir=tested_code_dir,
-        debug_pytest_harness=True,
+        debug_harness=True,
     )
 
     output = capsys.readouterr().out
 
-    assert "DEBUG: --- List of test files pytest_harness will run ---" in output
+    assert (
+        "DEBUG: --- List of test files "
+        "pytest_harness will run ---"
+        in output
+    )
     assert "1. test_one.py" in output
 
 
-# --- test_08_exits_with_code_one_when_run_failed() ----------------------------
-def test_08_exits_with_code_one_when_run_failed(
+# --- test_06_returns_code_one_when_run_failed() -------------------------------
+def test_06_returns_code_one_when_run_failed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -744,8 +579,7 @@ def test_08_exits_with_code_one_when_run_failed(
         output_dir,
     ) = _make_required_dirs(tmp_path)
 
-    test_file = test_file_dir / "test_one.py"
-    test_file.write_text(
+    (test_file_dir / "test_one.py").write_text(
         "def test_one():\n"
         "    pass\n",
         encoding="utf-8",
@@ -753,45 +587,12 @@ def test_08_exits_with_code_one_when_run_failed(
 
     fake_log = _FakeLog(output_dir)
 
-    monkeypatch.setattr(
-        module,
-        "log",
-        fake_log,
-    )
-    monkeypatch.setattr(
-        module,
-        "_resolve_test_file_paths",
-        lambda **kwargs: [Path("test_one.py")],
-    )
-    monkeypatch.setattr(
-        module.tempfile,
-        "TemporaryDirectory",
-        lambda **kwargs: _FakeTemporaryDirectory(
-            prefix="coverage_",
-            temp_dir=output_dir,
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_test_file_record",
-        lambda **kwargs: _record(
-            kwargs["test_file_path"]
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "_combine_coverage_data_files",
-        lambda **kwargs: _empty_combined_result(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_summary_data",
-        lambda **kwargs: _failed_summary(),
-    )
-    monkeypatch.setattr(
-        module,
-        "_build_dashboard",
-        lambda **kwargs: "summary",
+    _install_successful_pipeline(
+        monkeypatch=monkeypatch,
+        fake_log=fake_log,
+        output_dir=output_dir,
+        selected_test_files=[Path("test_one.py")],
+        summary_result=_failed_summary(),
     )
 
     _run_harness(
@@ -802,9 +603,138 @@ def test_08_exits_with_code_one_when_run_failed(
     )
 
     assert fake_log.close_call_count == 1
+    assert (
+        "Pytest Harness exit code: 1 "
+        "(test run errors detected)"
+        in fake_log.messages
+    )
+
+
+def test_07_package_exports_pytest_harness() -> None:
+
+    import importlib
+
+    import pytest_harness
+
+    # pytest_harness is loaded as a pytest plugin before coverage starts.
+    # Reload so the package-level public API is also exercised under coverage.
+    # Bonus: __init__.py would not be covered without this
+
+    importlib.reload(pytest_harness)
+
+    assert callable(pytest_harness.pytest_harness)
+
 
 
 # === Internal helpers =========================================================
+
+def _install_successful_pipeline(
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    fake_log: _FakeLog,
+    output_dir: Path,
+    selected_test_files: list[Path],
+    dashboard_calls: list[dict[str, Any]] | None = None,
+    summary_result: object | None = None,
+) -> None:
+    """
+    Install simple successful fakes for pytest_harness dependencies.
+    """
+    if dashboard_calls is None:
+        dashboard_calls = []
+
+    if summary_result is None:
+        summary_result = _successful_summary()
+
+    monkeypatch.setattr(
+        module,
+        "log",
+        fake_log,
+    )
+
+    monkeypatch.setattr(
+        module.tempfile,
+        "TemporaryDirectory",
+        lambda **kwargs: _FakeTemporaryDirectory(
+            prefix="coverage_",
+            temp_dir=output_dir,
+        ),
+    )
+
+    monkeypatch.setattr(
+        module,
+        "_resolve_test_file_paths",
+        lambda **kwargs: selected_test_files,
+    )
+
+    monkeypatch.setattr(
+        module,
+        "_build_test_file_record",
+        lambda **kwargs: _processed_record(
+            **kwargs
+        ),
+    )
+
+    monkeypatch.setattr(
+        module,
+        "_combine_coverage_data_files",
+        lambda **kwargs: _empty_combined_result(),
+    )
+
+    monkeypatch.setattr(
+        module,
+        "_build_summary_data",
+        lambda **kwargs: summary_result,
+    )
+
+    def fake_dashboard(
+        **kwargs: Any,
+    ) -> str:
+        dashboard_calls.append(kwargs)
+        return "SUMMARY TEXT"
+
+    monkeypatch.setattr(
+        module,
+        "_build_dashboard",
+        fake_dashboard,
+    )
+
+
+def _processed_record(
+
+    **kwargs: Any,
+
+) -> TestFileRecord:
+
+    """
+
+    Build a minimal successful record from the values pytest_harness
+
+    actually passed to the record builder.
+
+    """
+
+    node_id = f"{kwargs['test_file_label']}::test_placeholder"
+
+    test_function_record = TestFunctionRecord(
+        node_id=node_id,
+        outcome="passed",
+    )
+
+    return TestFileRecord(
+        test_file_path=kwargs["test_file_path"],
+        test_file_label=kwargs["test_file_label"],
+        test_file_exit_code=0,
+        duration_seconds=0.1,
+        status=TestFileStatus.PROCESSED,
+        timed_out_test_function_node_id=None,
+        not_processed_reason=None,
+        file_error_message=None,
+        warning_messages=[],
+        collected_test_function_node_ids=[node_id],
+        started_test_function_node_ids=[node_id],
+        test_function_records=[test_function_record],
+    )
 
 def _empty_combined_result(
     total_coverage_pct: float = 100.0,
@@ -821,62 +751,111 @@ def _empty_combined_result(
     )
 
 
-def _record(path: Path) -> TestFileRecord:
-    return TestFileRecord(
-        test_file_path=str(path),
-        test_file_exit_code=0,
-        duration_seconds=0.1,
-        status=TestFileStatus.PROCESSED,
-        not_processed_reason=None,
-        file_error_message=None,
-        warning_count=0,
-        warning_messages=[],
-        passed_test_function_count=1,
-        failed_test_function_count=0,
-        error_test_function_count=0,
-        skipped_test_function_count=0,
-        xfailed_test_function_count=0,
-        xpassed_test_function_count=0,
-        passed_test_function_names=["test_ok"],
-        failed_test_function_names=[],
-        error_test_function_names=[],
-        skipped_test_function_names=[],
-        xfailed_test_function_names=[],
-        xpassed_test_function_names=[],
-    )
-
-
 def _make_required_dirs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, Path]:
-    test_file_dir = tmp_path / "tests"
-    log_dir = tmp_path / "logs"
-    tested_code_dir = tmp_path / "src"
-    output_dir = log_dir / "run"
+    test_file_dir = (
+        tmp_path / "tests"
+    ).resolve()
+    log_dir = (
+        tmp_path / "logs"
+    ).resolve()
+    tested_code_dir = (
+        tmp_path / "src"
+    ).resolve()
+    output_dir = (
+        log_dir / "run"
+    ).resolve()
 
     test_file_dir.mkdir()
     log_dir.mkdir()
     tested_code_dir.mkdir()
     output_dir.mkdir()
 
-    return test_file_dir, log_dir, tested_code_dir, output_dir
+    return (
+        test_file_dir,
+        log_dir,
+        tested_code_dir,
+        output_dir,
+    )
 
 
 def _successful_summary() -> SimpleNamespace:
     return SimpleNamespace(
+        random_order_seed=None,
+        test_function_timeout_seconds=200.0,
+        source_file_count=0,
+        test_file_count=1,
+        passed_test_file_count=1,
+        failed_test_file_count=0,
+        error_test_file_count=0,
+        skipped_test_file_count=0,
+        xfailed_test_file_count=0,
+        xpassed_test_file_count=0,
+        passed_test_function_count=1,
         failed_test_function_count=0,
         error_test_function_count=0,
+        skipped_test_function_count=0,
+        xfailed_test_function_count=0,
         xpassed_test_function_count=0,
+        executed_line_count=0,
+        total_line_count=0,
+        executed_branch_count=0,
+        total_branch_count=0,
+        statement_coverage_pct=0.0,
+        branch_coverage_pct=0.0,
+        total_coverage_pct=100.0,
         not_processed_test_file_count=0,
         no_tests_collected_test_file_count=0,
-
+        warning_test_file_count=0,
+        warning_count=0,
+        problem_test_files=[],
+        not_processed_test_files=[],
+        no_tests_collected_test_files=[],
+        warning_test_files=[],
+        source_file_coverage_records=[],
     )
+
 
 def _failed_summary() -> SimpleNamespace:
     return SimpleNamespace(
+        random_order_seed=None,
+        test_function_timeout_seconds=200.0,
+
+        source_file_count=0,
+        test_file_count=1,
+
+        passed_test_file_count=0,
+        failed_test_file_count=1,
+        error_test_file_count=0,
+        skipped_test_file_count=0,
+        xfailed_test_file_count=0,
+        xpassed_test_file_count=0,
+
+        passed_test_function_count=0,
         failed_test_function_count=1,
         error_test_function_count=0,
+        skipped_test_function_count=0,
+        xfailed_test_function_count=0,
         xpassed_test_function_count=0,
+
+        executed_line_count=0,
+        total_line_count=0,
+        executed_branch_count=0,
+        total_branch_count=0,
+
+        statement_coverage_pct=0.0,
+        branch_coverage_pct=0.0,
+        total_coverage_pct=0.0,
+
         not_processed_test_file_count=0,
         no_tests_collected_test_file_count=0,
+        warning_test_file_count=0,
+        warning_count=0,
+
+        problem_test_files=[],
+        not_processed_test_files=[],
+        no_tests_collected_test_files=[],
+        warning_test_files=[],
+        source_file_coverage_records=[],
     )

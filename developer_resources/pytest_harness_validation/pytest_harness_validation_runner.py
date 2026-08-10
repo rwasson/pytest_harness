@@ -3,13 +3,13 @@ pytest_harness_validation_runner.py
 
 Last edited: 2026-07-16
 """
-
+import sys
 from pathlib import Path
 
 from pytest_harness import pytest_harness
 
 # --- File settings ---
-INDIVIDUAL_LOGS = True
+
 
 # Run all test_*.py files if include_list is None.
 include_list: list[str] | None = None
@@ -20,9 +20,10 @@ include_list: list[str] | None = None
 # exclude_list: list[str] | None = None
 exclude_list = [
     "test_flagged.py",
-    "test_import_error.py",
+    "test_import_error",
     "test_empty.py",
 ]
+
 
 # --- Path settings ---
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -50,18 +51,26 @@ tested_code_dir = (
 
 # === main() DO NOT EDIT BELOW =================================================
 def main() -> None:
-    pytest_harness(
+    run_results = pytest_harness(
         test_file_dir=test_file_dir,
         log_dir=log_dir,
         tested_code_dir=tested_code_dir,
         include_list=include_list,
         exclude_list=exclude_list,
-        individual_logs=INDIVIDUAL_LOGS,
+        runner_log=True,
+        test_file_logs=True,
         log_keep=3,
-        debug_pytest_harness=False,
-        console_theme="light"
-        # show_skipped_and_xfailed=True,
+        debug_harness=False,
+        dashboard_width=80,
+        console_dashboard=True,
+        console_theme="light",
+        show_skipped_and_xfailed=True,
+        random_order=True,
+        # test_function_timeout=2,
     )
+
+    if run_results.pytest_harness_exit_code != 0:
+        sys.exit(run_results.pytest_harness_exit_code)
 
 
 if __name__ == "__main__":

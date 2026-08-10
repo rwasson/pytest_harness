@@ -1,5 +1,5 @@
 """
-test_import_error.py
+test_import_error_withverylongname_thathas_afewpossible_linebreak_possiblitites_but_still_really_long.py
 
 Last_edited 2026-7-16
 """
@@ -112,7 +112,7 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
         coverage_data_file_path=coverage_data,
         extra_pytest_args=["-k", "selected"],
         coverage_config_file_path=coverage_config,
-        individual_logs=True,
+        test_file_logs=True,
     )
 
     assert result.test_file_exit_code == 1
@@ -177,7 +177,7 @@ def test_02_supports_error_plural_key_and_error_outcome(
         test_file_log_path=tmp_path / "test_error.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_error",
-        individual_logs=False,
+        test_file_logs=False,
     )
 
     assert result.error_test_function_count == 1
@@ -185,7 +185,7 @@ def test_02_supports_error_plural_key_and_error_outcome(
     assert result.test_file_exit_code == 2
 
 
-def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
+def test_03_disables_terminal_coverage_report_when_test_file_logs_are_off(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -204,7 +204,7 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
         test_file_log_path=tmp_path / "unused.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_ok",
-        individual_logs=False,
+        test_file_logs=False,
     )
 
     assert "--cov-report=" in popen_call["cmd"]
@@ -281,7 +281,7 @@ def test_06_marks_file_when_no_tests_are_collected(
         test_file_log_path=tmp_path / "test_empty.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_empty",
-        individual_logs=False,
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NO_TESTS_COLLECTED

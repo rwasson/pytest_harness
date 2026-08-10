@@ -1,3 +1,8 @@
+"""
+test_windows_integration.py
+
+Tests Windows paths - skipped unless running in Windows OS (on GitHub)
+"""
 from __future__ import annotations
 
 import subprocess
@@ -6,14 +11,13 @@ from pathlib import Path
 
 import pytest
 
-
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32",
     reason="Windows integration test",
 )
 
 
-def test_pytest_harness_runs_with_windows_temp_paths(
+def test_01_pytest_harness_runs_with_windows_temp_paths(
     tmp_path: Path,
 ) -> None:
     # --- Arrange: temporary project ---
@@ -67,7 +71,7 @@ def test_pytest_harness_runs_with_windows_temp_paths(
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=60,
+        test_function_timeout=60,
         check=False,
     )
 

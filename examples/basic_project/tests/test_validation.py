@@ -16,6 +16,10 @@ PyCharm may need to restart or reindex before the warnings disappear.
 These editor warnings do not affect test execution. A project can have more
 than one Sources Root, including a Sources Root inside a nested example or
 subproject.
+
+When debugging a failing test,
+place diagnostic print statements before the assertion being investigated.
+Execution of that test function stops when an assertion fails.
 """
 
 from __future__ import annotations

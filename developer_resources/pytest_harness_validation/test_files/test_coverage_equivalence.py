@@ -485,14 +485,14 @@ def _run_and_combine(
     tested_code_dir: Path,
     test_files: list[Path],
 ) -> CombinedCoverageResult:
-    coverage_work_dir = run_dir / "coverage"
+    coverage_temp_dir_path = run_dir / "coverage"
     log_dir = run_dir / "logs"
 
-    coverage_work_dir.mkdir(parents=True)
+    coverage_temp_dir_path.mkdir(parents=True)
     log_dir.mkdir(parents=True)
 
     coverage_config_path = (
-        coverage_work_dir / "pytest_harness_coveragerc"
+        coverage_temp_dir_path / "pytest_harness_coveragerc"
     )
 
     coverage_config_path.write_text(
@@ -515,15 +515,13 @@ def _run_and_combine(
     ):
         record = _build_test_file_record(
             test_file_path=test_file,
-            test_file_log_path=(
-                log_dir / f"{test_file.stem}.log"
-            ),
+            test_file_label=test_file.name,
+            test_file_log_path=(log_dir / f"{test_file.stem}.log"),
             tested_code_dir=tested_code_dir,
-            coverage_data_file_path=(
-                coverage_work_dir / f".coverage.{index}"
-            ),
+            coverage_data_file_path=(coverage_temp_dir_path / f".coverage.{index}"),
+            progress_file_path=(coverage_temp_dir_path / f"progress_{test_file.stem}.txt"),
             coverage_config_file_path=coverage_config_path,
-            individual_logs=False,
+            test_file_logs=False,
         )
 
         assert record.test_file_exit_code == 0
@@ -531,7 +529,7 @@ def _run_and_combine(
         assert record.error_test_function_count == 0
 
     return _combine_coverage_data_files(
-        coverage_temp_dir_path=coverage_work_dir,
+        coverage_temp_dir_path=coverage_temp_dir_path,
         tested_code_dir=tested_code_dir,
     )
 
@@ -547,7 +545,6 @@ def _write_test_file(
     return path
 
 
-# === Internal helpers =========================================================
 def _get_only_source_record(
     result: CombinedCoverageResult,
 ) -> SourceFileCoverageRecord:

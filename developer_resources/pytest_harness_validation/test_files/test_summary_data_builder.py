@@ -17,6 +17,7 @@ from pytest_harness.constants_and_classes import (
     SourceFileCoverageRecord,
     TestFileRecord,
     TestFileStatus,
+    TestFunctionRecord,
 )
 
 # === Tests ===================================================================
@@ -27,11 +28,11 @@ def test_01_builds_aggregate_counts_and_problem_records(
 
     records = [
         _file_record(
-            path=str(tmp_path / "test_pass.py"),
+            path=(tmp_path / "test_pass.py"),
             passed=["test_a", "test_b"],
         ),
         _file_record(
-            path=str(tmp_path / "test_mixed.py"),
+            path=tmp_path / "test_mixed.py",
             passed=["test_ok"],
             failed=["test_fail"],
             skipped=["test_skip"],
@@ -40,22 +41,19 @@ def test_01_builds_aggregate_counts_and_problem_records(
             test_file_exit_code=100,
         ),
         _file_record(
-            path=str(tmp_path / "test_error.py"),
+            path=tmp_path / "test_error.py",
             errors=["test_setup_error"],
             test_file_exit_code=1,
         ),
         _file_record(
-            path=str(
-                tmp_path / "test_import_problem.py"
-            ),
+            path=tmp_path / "test_import_problem.py",
             test_file_exit_code=2,
             status=TestFileStatus.NOT_PROCESSED,
-            file_error_message=(
-                "ImportError during collection"
-            ),
+            not_processed_reason="import error",
+            file_error_message="ImportError during collection",
         ),
         _file_record(
-            path=str(tmp_path / "test_empty.py"),
+            path=tmp_path / "test_empty.py",
             test_file_exit_code=5,
             status=TestFileStatus.NO_TESTS_COLLECTED,
         ),
@@ -77,11 +75,13 @@ def test_01_builds_aggregate_counts_and_problem_records(
     )
 
     result = module._build_summary_data(
-        pytest_test_file_records=records,
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=records,
         combined_coverage_result=coverage,
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
-        debug_pytest_harness=False,
+        debug_harness=False,
     )
 
     assert result.test_file_count == 5
@@ -103,11 +103,12 @@ def test_01_builds_aggregate_counts_and_problem_records(
     assert len(result.not_processed_test_files) == 1
 
     not_processed = result.not_processed_test_files[0]
-    assert not_processed.relative_test_file_path == "test_import_problem.py"
-    assert not_processed.not_processed_reason == "processing error"
+    assert not_processed.test_file_label == "test_import_problem.py"
+    assert not_processed.not_processed_reason == "import error"
     assert not_processed.file_error_message == "ImportError during collection"
     assert result.not_processed_test_file_count == 1
-    assert result.no_tests_collected_test_files == ["test_empty.py"]
+
+    assert [record.test_file_label for record in result.no_tests_collected_test_files] == ["test_empty.py"]
     assert (result.no_tests_collected_test_file_count == 1)
     assert [
         record.test_file_name
@@ -123,8 +124,8 @@ def test_01_builds_aggregate_counts_and_problem_records(
     assert mixed.xfailed_test_function_names == ["test_expected_failure"]
     assert mixed.xpassed_test_function_names == ["test_unexpected_pass"]
 
-    # ProblemTestFileRecord currently retains all non-Passed
-    # outcomes, including Skipped and XFailed.
+    # TestFileRecord retains all non-Passed outcomes,
+    # including Skipped and XFailed.
     assert mixed.problem_count == 4
 
 
@@ -133,17 +134,19 @@ def test_02_skipped_and_xfailed_only_file_is_not_flagged_by_default(
 ) -> None:
 
     record = _file_record(
-        path=str(tmp_path / "test_expected.py"),
+        path=tmp_path / "test_expected.py",
         skipped=["test_skip"],
         xfailed=["test_expected_failure"],
     )
 
     result = module._build_summary_data(
-        pytest_test_file_records=[record],
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=[record],
         combined_coverage_result=_combined_result([]),
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
-        debug_pytest_harness=False,
+        debug_harness=False,
     )
 
     assert result.skipped_test_file_count == 1
@@ -158,17 +161,19 @@ def test_03_show_all_problems_flags_skipped_and_xfailed_file(
 
 
     record = _file_record(
-        path=str(tmp_path / "test_expected.py"),
+        path=tmp_path / "test_expected.py",
         skipped=["test_skip"],
         xfailed=["test_expected_failure"],
     )
 
     result = module._build_summary_data(
-        pytest_test_file_records=[record],
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=[record],
         combined_coverage_result=_combined_result([]),
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=True,
-        debug_pytest_harness=False,
+        debug_harness=False,
     )
 
     assert [
@@ -202,11 +207,13 @@ def test_04_copies_official_coverage_totals_and_sorts_source_files_lowest_first(
     )
 
     result = module._build_summary_data(
-        pytest_test_file_records=[],
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=[],
         combined_coverage_result=_combined_result([high, low]),
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
-        debug_pytest_harness=False,
+        debug_harness=False,
     )
 
     assert result.source_file_count == 2
@@ -234,11 +241,13 @@ def test_05_debug_mode_prints_official_counts(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     result = module._build_summary_data(
-        pytest_test_file_records=[],
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=[],
         combined_coverage_result=_combined_result([]),
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
-        debug_pytest_harness=True,
+        debug_harness=True,
     )
 
     output = capsys.readouterr().out
@@ -424,22 +433,22 @@ def test_08_build_summary_collects_warning_test_files(
 
     records = [
         _file_record(
-            path=str(tmp_path / "test_clean.py"),
-            warning_count=0,
+            path=tmp_path / "test_clean.py",
         ),
         _file_record(
-            path=str(tmp_path / "nested" / "test_warning.py"),
-            warning_count=2,
+            path=tmp_path / "nested" / "test_warning.py",
             warning_messages=["warning one", "warning two"],
         ),
     ]
 
     result = module._build_summary_data(
-        pytest_test_file_records=records,
+        random_order_seed=None,
+        test_function_timeout=None,
+        test_file_records=records,
         combined_coverage_result=_combined_result([]),
         test_file_dir=tmp_path,
         show_skipped_and_xfailed=False,
-        debug_pytest_harness=False,
+        debug_harness=False,
     )
 
     # One test file had warnings.
@@ -449,7 +458,7 @@ def test_08_build_summary_collects_warning_test_files(
     assert result.warning_count == 2
 
     # The correct test file was identified.
-    assert result.warning_test_files[0].relative_test_file_path == "nested/test_warning.py"
+    assert result.warning_test_files[0].test_file_label == "nested/test_warning.py"
 
     # hat specific file was recorded with two warnings.
     assert result.warning_test_files[0].warning_count == 2
@@ -457,10 +466,9 @@ def test_08_build_summary_collects_warning_test_files(
 
 
 # === Internal helpers ========================================================
-
 def _file_record(
     *,
-    path: str,
+    path: Path,
     passed: list[str] | None = None,
     failed: list[str] | None = None,
     errors: list[str] | None = None,
@@ -469,9 +477,8 @@ def _file_record(
     xpassed: list[str] | None = None,
     test_file_exit_code: int = 0,
     status: TestFileStatus = TestFileStatus.PROCESSED,
-    not_processed_reason: str = None,
+    not_processed_reason: str | None = None,
     file_error_message: str | None = None,
-    warning_count: int = 0,
     warning_messages: list[str] | None = None,
 ) -> TestFileRecord:
     passed = passed or []
@@ -481,27 +488,40 @@ def _file_record(
     xfailed = xfailed or []
     xpassed = xpassed or []
 
+    test_function_records = [
+        TestFunctionRecord(
+            node_id=f"{path}::{name}",
+            outcome=outcome,
+        )
+        for outcome, names in (
+            ("passed", passed),
+            ("failed", failed),
+            ("error", errors),
+            ("skipped", skipped),
+            ("xfailed", xfailed),
+            ("xpassed", xpassed),
+        )
+        for name in names
+    ]
+
+    test_function_node_ids = [
+        record.node_id
+        for record in test_function_records
+    ]
+
     return TestFileRecord(
         test_file_path=path,
+        test_file_label=path.name,
         test_file_exit_code=test_file_exit_code,
         duration_seconds=0.1,
         status=status,
+        timed_out_test_function_node_id=None,
         not_processed_reason=not_processed_reason,
         file_error_message=file_error_message,
-        warning_count=warning_count,
         warning_messages=warning_messages or [],
-        passed_test_function_count=len(passed),
-        failed_test_function_count=len(failed),
-        error_test_function_count=len(errors),
-        skipped_test_function_count=len(skipped),
-        xfailed_test_function_count=len(xfailed),
-        xpassed_test_function_count=len(xpassed),
-        passed_test_function_names=passed,
-        failed_test_function_names=failed,
-        error_test_function_names=errors,
-        skipped_test_function_names=skipped,
-        xfailed_test_function_names=xfailed,
-        xpassed_test_function_names=xpassed,
+        collected_test_function_node_ids=test_function_node_ids,
+        started_test_function_node_ids=test_function_node_ids,
+        test_function_records=test_function_records,
     )
 
 

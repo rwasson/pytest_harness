@@ -4,7 +4,7 @@ pytest_harness_ci_runner.py
 Run the successful basic-project tests in CI.
 Intentional failure, error, empty, and import-error examples are excluded.
 """
-
+import sys
 from pathlib import Path
 
 from pytest_harness import pytest_harness
@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2] / "examples" / "basic_project
 
 
 def main() -> None:
-    pytest_harness(
+    run_results = pytest_harness(
         test_file_dir=PROJECT_ROOT / "tests",
         log_dir=PROJECT_ROOT / "tests" / "logs",
         tested_code_dir=PROJECT_ROOT / "src" / "sample_package",
@@ -24,6 +24,9 @@ def main() -> None:
         ],
         log_keep=3,
     )
+
+    if run_results.pytest_harness_exit_code != 0:
+        sys.exit(run_results.pytest_harness_exit_code)
 
 
 if __name__ == "__main__":

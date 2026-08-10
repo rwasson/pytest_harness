@@ -6,6 +6,8 @@ Intentional pytest outcomes used to demonstrate pytest_harness reporting.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 
@@ -46,3 +48,5 @@ def test_06_intentional_error_during_setup(
     # This body is never reached.
     pass
 
+def test_07_slow_test() -> None:
+    time.sleep(.5)

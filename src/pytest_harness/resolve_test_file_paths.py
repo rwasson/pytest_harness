@@ -1,7 +1,7 @@
 """
 resolve_test_file_paths.py
 
-Last edited: 2026-08-05
+Last edited: 2026-08-10
 """
 
 from pathlib import Path
@@ -85,6 +85,7 @@ def _resolve_test_file_paths(
 
 # === Internal helpers =========================================================
 
+# --- _resolve_selector() ------------------------------------------------------
 def _resolve_selector(
     *,
     entrypath: str | Path,
@@ -145,6 +146,7 @@ def _resolve_selector(
     )
 
 
+# --- _resolve_selector_path() -------------------------------------------------
 def _resolve_selector_path(
     *,
     entrypath: str | Path,
@@ -168,16 +170,21 @@ def _resolve_selector_path(
     )
 
 
+# --- _discover_test_files() ---------------------------------------------------
 def _discover_test_files(
     directory_path: Path,
 ) -> list[Path]:
-    return sorted(
+    test_files = {
         path.resolve()
-        for path in directory_path.rglob("test_*.py")
+        for pattern in ("test_*.py", "*_test.py")
+        for path in directory_path.rglob(pattern)
         if path.is_file()
-    )
+    }
+
+    return sorted(test_files)
 
 
+# --- _require_valid_test_file() -----------------------------------------------
 def _require_valid_test_file(
     *,
     path: Path,
@@ -213,6 +220,7 @@ def _require_valid_test_file(
     return path
 
 
+# --- _require_path_inside_test_directory() ------------------------------------
 def _require_path_inside_test_directory(
     *,
     path: Path,

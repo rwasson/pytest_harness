@@ -13,18 +13,18 @@ other Python script from Terminal.
 
 Why use pytest_harness?
 -----------------------
-- no command-line flags, `pyproject.toml` coverage settings, or logging setup required
-- test files run independently; if one test file crashes or fails during import,
-  collection, or execution, pytest_harness continues to the next test file
-- compact color-coded dashboard and plain-text log for the complete run:
-    - summary of test results 
-    - list of files with import or test collection errors
-    - combined coverage
-    - optional coverage for each source file
+- no command-line flags, `pyproject.toml`, coverage settings, or logging setup required
+- compact color-coded dashboard and plain-text log that report:
+    - test file progress
+    - summary of test results
+    - list of test files with processing errors and warnings
+    - randomization seed, timeout limit, and slow test functions (if any)
+    - combined coverage with optional coverage for each source file
     - output directory and names of created log files
-    - exit code
-- optional per-test-file logs containing pytest results and output from `print()` statements
-    - support visual inspection of test and function outputs
+- test files run independently; if one test file crashes or fails during import,
+  collection, or execution, pytest_harness records the problem and continues to the next test file
+- optional per-test-file logs containing pytest results, warnings, and `print()` output
+    - support visual inspection of test and function outputs for debugging
     - display missing (uncovered) source lines
     - can serve as lightweight documentation of tested behavior and passing status
 - detailed docstring with complete argument list:  
@@ -33,171 +33,86 @@ Why use pytest_harness?
 
         help(pytest_harness)
 
-
 pytest_harness is a workflow orchestrator, not a pytest plugin.
 
-
-Tips
-----
-- pytest_harness_runner:
-  - Place pytest_harness_runner.py in your project's test directory.
-  - Place test_helper files in a subdirectory inside your project's test directory.
-  - pytest_harness uses Logduo internally for its own console output and test-run
-    logs. Do not add separate logging setup for the runner or for
-    pytest_harness-generated test-file logs.
-  - Give your runner script a name that does not start with
-    `test_` or end with `_test.py`. PyCharm may treat those names as pytest test
-    files rather than as executable runner scripts (right-click won't work).
-
-- test files:
-  - Test file names should match `test_*.py`.
-  - Test functions may configure and inspect Logduo logging via Duo() when logging behavior
-    is part of what the test verifies (see example test below).
-  - `print()` statements inside test functions are captured in the test file's individual log and 
-     can be used to verify the tested code is executing as intended.
-  - `print()` statements outside test functions are not included in the console,
-    the summary log, or the test file's individual log.
-  - Use pytest's `tmp_path` fixture when tests create temporary files or directories 
-    (see example test below).
-  - Keep test functions independent and do not rely on test function execution order.
-  - Recommendations: 
-    - Give test functions descriptive names that include a numeric component
-    (e.g., `test_01_verify_add_calculation_and_output_to_console_and_log`).
-    - Ordered numeric components make it easier to find and edit flagged tests.
-
-  
-Example runner
---------------
+    
+Quick Start: Example runner
+--------------------------
     """
     pytest_harness_runner.py
-
-    Run from PyCharm: Right-click on `pytest_harness_runner.py` and select Run.
-    Run from Terminal (in tests' directory): `python pytest_harness_runner.py`
     """
-
+    import sys
+    from dataclasses import fields
     from pathlib import Path
 
     from pytest_harness import pytest_harness
-
+    
     # --- Path settings ---
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-
-    def main() -> None:
-        pytest_harness(
-            test_file_dir=PROJECT_ROOT / "tests",                 
-            log_dir=PROJECT_ROOT / "tests" / "logs",              
-            tested_code_dir=PROJECT_ROOT / "src" / "my_project",  
-            log_keep=3,                                           
-        )
-
-
-    if __name__ == "__main__":
-        main()
-
-
-**IMPORTANT:**
-- `tested_code_dir` identifies the top-level directory containing the code being
-  tested. Files in that directory and its subdirectories are included in
-  coverage analysis.
-
-- Use the final directory name in `tested_code_dir` as the first part of imports
-  in test files. For example, if:
-
-        tested_code_dir = PROJECT_ROOT / "src" / "sample_package"
-
-  and `sample_package` contains `calculator.py`, then `test_calculator.py` can
-  import `add` with:
-
-        from sample_package.calculator import add
-
-  Recommended: Include an empty `__init__.py` inside `sample_package` to ensure
-  reliable imports.
-
-
-Example test file (excerpt)
----------------------------
-    """
-    test_calculator.py
-    """
-    from pathlib import Path
-
-    import pytest
-    from logduo import Duo
-
-    from sample_package.calculator import add
-
-    def test_01_verify_add_calculation_and_output_to_console_and_log(
-        tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-
-        result = add(4, 7)
-        assert result == 11
-
-        message = f"add(4, 7) returned {result:g}"
-
-        log_dir_path = str(tmp_path / "logs")
-
-        # pytest manages and later removes the temporary directory log_dir_path.
-        # Duo() creates an isolated Logduo logger for this test.
-        log = Duo()
-        log.configure(log_dir_path=log_dir_path)
-
-        log(message)
- 
-        log_file_path = log.main_log_file_path
-        assert log_file_path is not None
     
-        log.close()
-    
-        captured = capsys.readouterr()
-        console_output = captured.out + captured.err
-        log_content = log_file_path.read_text(encoding="utf-8")
-    
-        assert message in console_output
-        assert message in log_content
+    # pytest_harness creates the dashboard and logs automatically.
+    # The returned results are optional and support additional analysis.
+    results = pytest_harness(
+        test_file_dir=PROJECT_ROOT / "tests",
+        log_dir=PROJECT_ROOT / "tests" / "logs",
+        tested_code_dir=PROJECT_ROOT / "src" / "sample_package",
+        log_keep=3,
+        dashboard_width=80,
+        console_theme="light",
+        random_order=True,
+        test_function_timeout=2,
+        show_skipped_and_xfailed=True,
+    )
 
-        print("test_01_verify_add_calculation_and_output_to_console_and_log")
-        print(f"Passed add() assert statement: confirmed add(4, 7) returns expected result = {result}.")
-        print("Passed output assert statements: confirmed that expected messages are in console and log.")
-        print("\n--- CAPTURED CONSOLE OUTPUT FOR VISUAL INSPECTION ---")
-        print(console_output.rstrip())
-        print("\n--- LOG CONTENT FOR VISUAL INSPECTION ---")
-        print(log_content.rstrip())
-        print("")
-        print("--- End of test_01 ---")
+    # --- Inspect returned results --- 
+    print("\nFields in results")
+    print("-----------------")
+    for field in fields(results):
+        print(field.name)
+    
+    # test_function_records is useful for repeated-run and flaky-test analysis
+    print("\nFirst 3 results.test_function_records")
+    print("-------------------------------------")
+    for record in results.test_function_records[:3]:
+        print(f"{record}\n")
+
+    # --- Exit with pytest_harness_exit code if any test problems ---
+    if results.pytest_harness_exit_code != 0:
+        sys.exit(results.pytest_harness_exit_code)
 
 
 Example console output
 ----------------------
 Console output is color-coded (logs are plain text).
 
-    Logging started:  2026-08-03 16:41:48
-    Running script:   pytest_harness_runner.py
-    pruned run directories: 1 (keep=3)  
-
-    Running 5 test files: ..... done
-
+    Running 7 test files: ....... done
+    
     Pytest Harness Summary
-    ═════════════════════════════════════
+    ════════════════════════════════════════
+    Random-order seed: 1002631522
+    Test-function timeout (in seconds): 2.0
+    
     
     Test file summary
-    -------------------------------------
+    ----------------------------------------
     Source files covered:         2
-    Test files run:               5
-    Test files passed all tests:  2
+    Test files run:               7
+    Test files passed all tests:  4
     
-    Test files not processed (check imports) (1):
-        test_import_error.py
+    Test files not processed successfully (1):
+        Test function timed out (1):
+            test_timeout.py
+                    in: test_02_exceeds_test_function_timeout
     
     Test files with no collected tests (1):
         test_empty.py
     
-    
+    Test files with warnings (details in individual test-file logs) (1):
+        unit_tests/test_intentional_warning.py (1 warning)
+
     Test function summary
-    -------------------------------------
-        Passed:     22
+    ----------------------------------------
+        Passed:     25
         Failed:      1
         Error:       1
         XPassed:     1
@@ -205,123 +120,51 @@ Console output is color-coded (logs are plain text).
         XFailed:     1
     
     Flagged test functions (in 1 test file):
-        test_flagged.py
+        unit_tests/test_flagged.py
             Failed (1):
                 test_03_intentional_fail
             Error (1):
                 test_06_intentional_error_during_setup
             XPassed (1):
                 test_05_intentional_unexpected_pass
-    
-    
+            Skipped (1):
+                test_02_intentional_skip
+            XFailed (1):
+                test_04_intentional_expected_failure
+
     Total coverage
-    -------------------------------------
-    Statements:   96%
-    Branches:    100%
-    Total:        97%
+    ----------------------------------------
+        Statements:   83%
+        Branches:     58%
+        Total:        76%
+    
+    WARNING: Total coverage (76%) is below recommended threshold 85%.
+    
+    Source file   Executed/    Source
+    coverage      statements   file
+    ------------  -----------  --------------
+    55%           6/11         calculator.py
+    100%          19/19        helpers/arithmetic_functions.py
 
-
-    Source file  Executed/    Source
-    coverage     statements   file
-    -----------  -----------  -----------
-    95%          21/22        calculator.py
-    100%         2/2          __init__.py
-    ──────────────────────────────────────────────────────
-    Logging ended:    2026-08-03 16:41:48 (duration 00 sec)
+    Slowest test functions
+    ----------------------------------------
+    0.51 s  examples/basic_project/tests/unit_tests/test_flagged.py::test_07_slow_
+                test
+    
+    
+    Pytest Harness exit code: 1 (test run errors detected)
+    ───────────────────────────────────────────────────────
+    Pruned run dirs:  1
+    Logging ended:    2026-08-08 10:12:13 (duration 04 sec)
     Script path:
         /Users/<my_name>/basic_project/tests/pytest_harness_runner.py
     Output directory:
-        /Users/<my_name>/basic_project/tests/logs/pytest_harness_runner/run_2026_08_03__16_41_48
+        /Users/<my_name>/basic_project/tests/logs/pytest_harness_runner/run_2026_08_08_
+            _10_12_09
     Log-generated files in output directory:
         pytest_harness_runner.log
         test_calculator.log
-        test_empty.log
-        test_flagged.log
-        test_import_error.log
-        test_validation.log
-    
-    Process finished with exit code 1
-
-
-Example individual log file (excerpt from test_calculator.log)
---------------------------------------------------------------
-    ───────────────────────────────────────────────────────
-    test_calculator.log
-    Logging started:  2026-08-04 10:03:16
-    Generated by:     pytest_harness_runner.py
-    ───────────────────────────────────────────────────────
-
-    test_01_verify_add_calculation_and_output_to_console_and_log
-    Passed add() assert statement: confirmed add(4, 7) returns expected result = 11.
-    Passed output assert statements: confirmed that expected messages are in console and log.
-    
-    --- CAPTURED CONSOLE OUTPUT FOR VISUAL INSPECTION ---
-    Logging started:  2026-08-04 10:27:54
-    | INFO     | add(4, 7) returned 11
-    ───────────────────────────────────────────────────────
-    Logging ended:    2026-08-04 10:27:54 (duration 00 sec)
-    Output directory:
-        /private/var/folders/_3/4hr4l8_j0xgg2qp127f3bs180000gn/T/pytest-of-<my_name>/pytest-663/
-            test_01_verify_add_calculation0/logs/session/run_2026_08_04__10_27_54
-    Log-generated files in output directory:
-        config_table.txt
-        session.log
-    
-    --- LOG CONTENT FOR VISUAL INSPECTION ---
-    ───────────────────────────────────────────────────────
-    session.log
-    Logging started:  2026-08-04 10:27:54
-    ───────────────────────────────────────────────────────
-    
-    10:27:54.919 | INFO     | add(4, 7) returned 11
-    ───────────────────────────────────────────────────────
-    Logging ended:    2026-08-04 10:27:54 (duration 00 sec)
-    Output directory:
-        /private/var/folders/_3/4hr4l8_j0xgg2qp127f3bs180000gn/T/pytest-of-<my_name>/pytest-663/
-            test_01_verify_add_calculation0/logs/session/run_2026_08_04__10_27_54
-    Log-generated files in output directory:
-        config_table.txt
-        session.log
-    
-    --- End of test_01 ---
-    ...
-
-    ==================================== PASSES ====================================
-    ================================ tests coverage ================================
-    _______________ coverage: platform darwin, python 3.13.5-final-0 _______________
-    
-    Name                               Stmts   Miss Branch BrPart   Cover   Missing
-    -------------------------------------------------------------------------------
-    src/sample_package/__init__.py         2      0      0      0 100.00%
-    src/sample_package/calculator.py      22     10      6      2  50.00%   21, 50, 68, 86-96
-    -------------------------------------------------------------------------------
-    TOTAL                                 24     10      6      2  53.33%
-    ============================= slowest 10 durations =============================
-    0.05s call     examples/basic_project/tests/test_calculator.py::test_01_verify_add_calculation_and_output_to_console_and_log
-    
-    (9 durations < 0.005s hidden.  Use -vv to show these durations.)
-
-    =========================== short test summary info ============================
-    PASSED tests/test_calculator.py::test_01_verify_add_calculation_and_output_to_console_and_log
-    ...
-
-    pytest exit code: 0
-    duration: 0.42 seconds
-    ───────────────────────────────────────────────────────
-    Logging ended:    2026-08-04 10:18:32
-    Script path:
-        /Users/<my_name>/basic_project/tests/pytest_harness_runner.py
-    Log file path:
-        /Users/<my_name>/basic_project/tests/logs/pytest_harness_runner/
-            run_2026_08_04__10_18_31/test_calculator.log
-
-
-- The individual test-file log also includes detailed tracebacks for failed tests.
-- The coverage of 53.33% applies to this test file only. Other test files boosted total coverage to 97%.
-- The `Missing` source lines can help target code that needs additional tests.
-- A complete basic project is available in the GitHub repository under
-
-    `examples/basic_project/`.
+        ...
 
 
 Arguments
@@ -346,8 +189,25 @@ Arguments
     Optional test files or directories to exclude after discovery or inclusion.
     Default is None.
 
-- **individual_logs**: `bool`  
+- **random_order**: `bool`  
+    Randomize test-function execution order. Default is False.
+
+- **random_order_seed**: `int | None`  
+    Seed used when `random_order=True`. If None, pytest_harness generates and
+    reports a seed so the test order can be reproduced. Default is None.
+
+- **test_function_timeout**: `int | float | None`  
+    Maximum execution time in seconds for an individual test function.
+    Use None to disable the timeout. Default is 200.
+
+- **runner_log**: `bool`  
+    Write the main pytest_harness summary log. Default is True.
+
+- **test_file_logs**: `bool`  
     Write one detailed log for each selected test file. Default is True.
+
+- **console_dashboard**: `bool`  
+    Display the summary dashboard in the console. Default is True.
 
 - **coverage_warning_threshold**: `float | None`  
     Warn when total coverage is below this percentage. This does not affect the
@@ -357,8 +217,7 @@ Arguments
     Display the source-file coverage table. Default is True.
 
 - **show_skipped_and_xfailed**: `bool`  
-    Include Skipped and XFailed outcomes in the flagged-test section. Default
-    is False.
+    Include Skipped and XFailed outcomes in flagged-test section. Default is False.
 
 - **log_keep**: `int | None`  
     Number of recent marked run directories to retain. Default is None, which
@@ -367,28 +226,35 @@ Arguments
 - **console_theme**: `str`  
     Console color theme: `"dark"` or `"light"`. Default is `"dark"`.
 
-- **console_wrap_width**: `int`  
-    Console wrapping width. Must be at least 80. Default is 150.
+- **dashboard_width**: `int`  
+    Width used for the console and log dashboard. Must be at least 80.
+    Default is 150.
 
-- **debug_pytest_harness**: `bool`  
-    Display additional internal diagnostics when a test-file subprocess cannot
-    be processed. Default is False.
+- **debug_harness**: `bool`  
+    Display additional internal diagnostics, including selected test files and
+    captured output from flagged test-file subprocesses. Default is False.
+
+Return value
+------------
+`pytest_harness()` returns structured run, test-file, test-function, and coverage
+results for optional programmatic analysis.
+The dashboard and logs are generated automatically; using the returned results
+is not required.
 
 For complete validation rules and documentation:
 
     from pytest_harness import pytest_harness
-
     help(pytest_harness)
 
 
-Exit Codes
-----------
-pytest_harness exits with:
+Pytest Harness Exit Codes
+-------------------------
+pytest_harness displays an exit code and includes it in the returned results:
 
-    0    the complete selected test run succeeded
-    1    the complete selected test run did not succeed
+    0    no test run errors detected
+    1    test run errors detected
 
-The run exits with code 1 when any of the following occurs:
+Any of the following produce `pytest_harness_exit_code = 1`:
 - one or more test functions Failed
 - one or more test functions produced Error
 - one or more tests XPassed
@@ -399,3 +265,123 @@ Note:
 - Skipped and XFailed outcomes do not by themselves cause exit code 1.
 - They also do not trigger tests being listed under `Flagged test functions` 
   unless `show_skipped_and_xfailed=True` (default = False)
+
+
+Tips
+----
+- Runner for pytest_harness(): suggested name is `pytest_harness_runner.py`
+  - Place pytest_harness_runner.py in your project's test directory.
+  - Place test_helper files in a subdirectory inside your project's test directory.
+  - pytest_harness uses Logduo internally for its own console output and test-run
+    logs. Do not add separate logging setup for the runner or for
+    pytest_harness-generated test-file logs. 
+  - If desired, set up logging in your runner after calling pytest_harness().
+  - Give your runner script a name that does not start with
+    `test_` or end with `_test.py`. PyCharm may treat those names as pytest test
+    files rather than as executable runner scripts (right-click won't work).
+
+- Test files:
+  - Test file names must match `test_*.py` or `*_test.py`.
+  - Test function names must begin with `test_`.
+  - Suggestion: give test functions names that are descriptive and include a 
+    numeric component to make it easier to quickly find and edit flagged tests, 
+    (e.g., `test_01_verify_add_calculation_and_output_to_console_and_log`).
+  - Keep test functions independent and do not rely on test function execution order.
+  - Use pytest's `tmp_path` fixture when tests create temporary files or directories 
+    (see example test file below).
+  - `print()` statements inside a test file are captured in the test file's 
+    individual log and can be used to verify the tested code is executing as intended.
+  - Test functions may configure and inspect Logduo logging via Duo() when logging 
+    behavior is part of what the test verifies (see example test file below).
+
+    
+Example test file
+-----------------
+    """
+    test_calculator.py
+
+    When debugging a failing test,
+    place diagnostic print statements before the assertion being investigated.
+    Execution of that test function stops when an assertion fails.
+    """
+    from pathlib import Path
+
+    import pytest
+    from logduo import Duo
+    from sample_package.calculator import calculation_report
+    from sample_package.helpers.arithmetic_functions import add
+
+    def test_01_verify_add_calculation_and_output_to_console_and_log(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+
+        assert add(4, 7) == 11
+    
+        # Duo() creates an isolated Logduo instance local to this test function.
+        # log.close() closes its logging session.
+        # pytest provides the tmp_path directory and removes it after the test run.
+        log_dir_path = str(tmp_path / "logs")
+        log = Duo()
+        log.configure(log_dir_path=log_dir_path, console_prefix="off")
+    
+        log("Passed assert statement: assert add(4, 7) == 11")
+        log('Show: calculation_report("add",4,7)')
+        log(f'    {calculation_report("add", 4, 7)}')
+        
+        log_file_path = log.main_log_file_path  # must assign before log.close()
+        log.close()
+    
+        captured = capsys.readouterr()
+        console_output = captured.out + captured.err
+        
+        assert log_file_path is not None
+        log_content = log_file_path.read_text(encoding="utf-8")
+    
+        assert "Calculation report" in console_output
+        assert "Calculation report" in log_content
+    
+        print("")
+        print("--- test_01_verify_add_calculation_and_output_to_console_and_log ---")
+        print("Passed assert statements that expected strings are in console and log.")
+    
+        print("\n--- CAPTURED CONSOLE OUTPUT FOR VISUAL INSPECTION ---")
+        print(console_output.rstrip())
+        print("\n--- LOG CONTENT FOR VISUAL INSPECTION ---")
+        print(log_content.rstrip())
+       
+
+Example test-file log 
+----------------------
+Excerpt from `test_calculator.log`:
+
+    test_01_verify_add_calculation_and_output_to_console_and_log
+    Passed assert statements: confirmed expected strings in console and log.
+
+    --- CAPTURED CONSOLE OUTPUT FOR VISUAL INSPECTION ---
+    Logging started:  2026-08-06 10:03:16
+    Passed assert statement: assert add(4, 7) == 11
+    ...
+
+    --- LOG CONTENT FOR VISUAL INSPECTION ---
+    10:03:16.919 | INFO     | Passed assert statement: assert add(4, 7) == 11
+    ...
+
+    ================================ tests coverage ================================
+    Name                               Stmts   Miss Branch BrPart   Cover   Missing
+    -------------------------------------------------------------------------------
+    src/sample_package/calculator.py      22     10      6      2  50.00%   21, 50, 68, 86-96
+    -------------------------------------------------------------------------------
+    TOTAL                                 24     10      6      2  53.33%
+    PASSED tests/test_calculator.py::test_01_verify_add_calculation_and_output_to_console_and_log
+    pytest exit code: 0
+    duration: 0.42 seconds
+
+- The individual test-file logs include warnings and detailed tracebacks for 
+  failed tests if relevant.
+- The `TOTAL` coverage of 53.33% applies to this test file only. Other test files 
+  boosted total coverage to 76%.
+- The `Missing` source lines can help target code that needs additional tests.
+- A complete basic project is available in the GitHub repository under
+
+    `examples/basic_project/`.

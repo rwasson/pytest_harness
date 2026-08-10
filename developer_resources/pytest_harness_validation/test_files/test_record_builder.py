@@ -124,13 +124,15 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     )
 
     result = module._build_test_file_record(
+        test_file_label=test_file.name,
         test_file_path=test_file,
         test_file_log_path=log_path,
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=coverage_data,
-        extra_pytest_args=["-k", "selected"],
         coverage_config_file_path=coverage_config,
-        individual_logs=True,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=True,
+        extra_pytest_args=["-k", "selected"],
     )
 
     assert result.test_file_exit_code == 1
@@ -155,6 +157,17 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     assert result.total_test_function_count == 5
     assert result.executed_any_tests is True
 
+    assert [
+               record.outcome
+               for record in result.test_function_records
+           ] == [
+               "passed",
+               "failed",
+               "skipped",
+               "xfailed",
+               "xpassed",
+           ]
+
     cmd = popen_call["cmd"]
 
     assert cmd[:3] == [
@@ -177,10 +190,13 @@ def test_01_builds_record_from_json_report_and_constructs_expected_command(
     assert fake_log.join_calls == 1
     assert fake_log.new_logger_calls
 
-    # assert "failed output\n" in fake_log.logged_lines[0] TODO delete
     assert fake_log.logged_lines[0] == "failed output"
     assert "pytest exit code: 1" in fake_log.logged_lines
     assert "duration: 1.25 seconds" in fake_log.logged_lines
+
+    env = popen_call["kwargs"]["env"]
+    assert env["COVERAGE_FILE"] == str(coverage_data)
+    assert env["PYTEST_HARNESS_PROGRESS_FILE"] == str(tmp_path / "progress_test_example.txt")
 
 
 # --- test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output()
@@ -213,11 +229,13 @@ def test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_error.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=(tmp_path / ".coverage.test_error"),
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.test_file_exit_code == 2
@@ -230,8 +248,8 @@ def test_02_marks_nonstandard_exit_as_not_processed_and_records_error_output(
     ]
 
 
-# --- test_03_disables_terminal_coverage_report_when_individual_logs_are_off()
-def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
+# --- test_03_disables_terminal_coverage_report_when_test_file_logs_are_off()
+def test_03_disables_terminal_coverage_report_when_test_file_logs_are_off(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -263,11 +281,13 @@ def test_03_disables_terminal_coverage_report_when_individual_logs_are_off(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "unused.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=(tmp_path / ".coverage.test_ok"),
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.PROCESSED
@@ -307,12 +327,17 @@ def test_04_marks_unexpected_outcome_as_invalid_json_report(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_unknown.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage.test_unknown",
         coverage_config_file_path=tmp_path / ".coveragerc",
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
     )
 
+    print("")
+    print(" --- test_04_marks_unexpected_outcome_as_invalid_json_report ---")
+    print(f"result.not_processed_reason == {result.not_processed_reason}")
     assert result.status is TestFileStatus.NOT_PROCESSED
     assert result.test_file_exit_code == module.JSON_REPORT_ERROR_CODE
     assert result.not_processed_reason == "invalid pytest report"
@@ -344,11 +369,13 @@ def test_05_marks_file_when_no_tests_are_collected(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_empty.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=(tmp_path / ".coverage.test_empty"),
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.test_file_exit_code == 5
@@ -367,11 +394,13 @@ def test_06_marks_selected_path_that_is_not_a_file_as_not_processed(
 
     result = module._build_test_file_record(
         test_file_path=selected_path,
+        test_file_label=selected_path.name,
         test_file_log_path=tmp_path / "test_group.log",
         tested_code_dir=tmp_path / "src",
         coverage_data_file_path=tmp_path / ".coverage.test_group",
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{selected_path.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NOT_PROCESSED
@@ -413,11 +442,13 @@ def test_07_marks_test_file_read_error_as_not_processed(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_one.log",
         tested_code_dir=tmp_path / "src",
         coverage_data_file_path=tmp_path / ".coverage.test_one",
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NOT_PROCESSED
@@ -436,11 +467,13 @@ def test_08_marks_missing_test_file_as_not_processed(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_missing.log",
         tested_code_dir=tmp_path / "src",
         coverage_data_file_path=tmp_path / ".coverage.test_missing",
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NOT_PROCESSED
@@ -448,6 +481,7 @@ def test_08_marks_missing_test_file_as_not_processed(
     assert result.not_processed_reason == "missing test file"
     assert result.file_error_message is not None
     assert "Selected test file no longer exists" in result.file_error_message
+
 
 # --- test_09_subprocess_launch_failure_returns_not_processed_record() ---
 def test_09_subprocess_launch_failure_returns_not_processed_record(
@@ -483,11 +517,13 @@ def test_09_subprocess_launch_failure_returns_not_processed_record(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_example.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage",
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NOT_PROCESSED
@@ -532,11 +568,13 @@ def test_10_empty_json_report_returns_not_processed_record(
 
     result = module._build_test_file_record(
         test_file_path=test_file,
+        test_file_label=test_file.name,
         test_file_log_path=tmp_path / "test_example.log",
         tested_code_dir=tested_code_dir,
         coverage_data_file_path=tmp_path / ".coverage",
         coverage_config_file_path=tmp_path / ".coveragerc",
-        individual_logs=False,
+        progress_file_path=tmp_path / f"progress_{test_file.stem}.txt",
+        test_file_logs=False,
     )
 
     assert result.status is TestFileStatus.NOT_PROCESSED
@@ -599,6 +637,208 @@ def test_14_resolve_not_processed_reason(
         test_file_exit_code=exit_code,
         file_error_message=message,
     )
+
+
+# --- test_15_timeout_preserves_completed_and_not_run_test_functions() ---------
+def test_15_timeout_preserves_completed_and_not_run_test_functions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tested_code_dir = tmp_path / "src"
+    tested_code_dir.mkdir()
+
+    test_file = tmp_path / "test_timeout.py"
+    test_file.write_text(
+        "def test_01(): pass\n"
+        "def test_02(): pass\n"
+        "def test_03(): pass\n",
+        encoding="utf-8",
+    )
+
+    progress_file = tmp_path / "progress_test_timeout.txt"
+    progress_file.write_text(
+        f"COLLECT\t{test_file}::test_01\n"
+        f"COLLECT\t{test_file}::test_02\n"
+        f"COLLECT\t{test_file}::test_03\n"
+        f"START\t{test_file}::test_01\n"
+        f"OUTCOME\t{test_file}::test_01\tpassed\n"
+        f"FINISH\t{test_file}::test_01\n"
+        f"START\t{test_file}::test_02\n",
+        encoding="utf-8",
+    )
+
+    fake_log = _FakeLog()
+    fake_process = _FakeProcess(
+        [
+            "test_timeout.py::test_01 PASSED\n",
+            "test_timeout.py::test_02 Timeout "
+            "test_function_timeout\n",
+        ],
+        returncode=1,
+    )
+
+    monkeypatch.setattr(
+        "logduo.log",
+        fake_log,
+    )
+    monkeypatch.setattr(
+        module.subprocess,
+        "Popen",
+        lambda *args, **kwargs: fake_process,
+    )
+
+    times = iter([100.0, 102.0])
+    monkeypatch.setattr(
+        module.time,
+        "perf_counter",
+        lambda: next(times),
+    )
+
+    result = module._build_test_file_record(
+        test_file_path=test_file,
+        test_file_label=test_file.name,
+        test_file_log_path=tmp_path / "test_timeout.log",
+        tested_code_dir=tested_code_dir,
+        coverage_data_file_path=tmp_path / ".coverage.test_timeout",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        progress_file_path=progress_file,
+        test_file_logs=False,
+        test_function_timeout=2.0,
+    )
+
+    assert result.status is TestFileStatus.NOT_PROCESSED
+    assert result.test_file_exit_code == module.TEST_TIMEOUT_ERROR_CODE
+    assert result.not_processed_reason == "test function timed out"
+    assert result.timed_out_test_function_node_id == (
+        f"{test_file}::test_02"
+    )
+
+    assert result.collected_test_function_node_ids == [
+        f"{test_file}::test_01",
+        f"{test_file}::test_02",
+        f"{test_file}::test_03",
+    ]
+
+    assert result.started_test_function_node_ids == [
+        f"{test_file}::test_01",
+        f"{test_file}::test_02",
+    ]
+
+    assert [
+        record.outcome
+        for record in result.test_function_records
+    ] == [
+        "passed",
+        "timed_out",
+        None,
+    ]
+
+
+def test_16_reads_collection_start_outcome_and_current_progress(
+    tmp_path: Path,
+) -> None:
+    progress_file = tmp_path / "progress.txt"
+
+    progress_file.write_text(
+        "COLLECT\ttest_a.py::test_01\n"
+        "COLLECT\ttest_a.py::test_02\n"
+        "START\ttest_a.py::test_01\n"
+        "OUTCOME\ttest_a.py::test_01\tpassed\n"
+        "DURATION\ttest_a.py::test_01\t1.25\n"
+        "FINISH\ttest_a.py::test_01\n"
+        "START\ttest_a.py::test_02\n",
+        encoding="utf-8",
+    )
+
+    (
+        collected,
+        started,
+        outcomes,
+        durations,
+        current,
+    ) = module._read_test_function_progress(
+        progress_file
+    )
+
+    assert collected == [
+        "test_a.py::test_01",
+        "test_a.py::test_02",
+    ]
+    assert started == [
+        "test_a.py::test_01",
+        "test_a.py::test_02",
+    ]
+    assert outcomes == {
+        "test_a.py::test_01": "passed",
+    }
+    assert durations == {
+        "test_a.py::test_01": 1.25,
+    }
+    assert current == "test_a.py::test_02"
+
+
+def test_17_missing_progress_file_returns_empty_progress(
+    tmp_path: Path,
+) -> None:
+    assert module._read_test_function_progress(
+        tmp_path / "missing.txt"
+    ) == (
+        [],
+        [],
+        {},
+        {},
+        None,
+    )
+
+
+# --- test_18_command_adds_random_order_seed_and_timeout() ---------------------
+def test_18_command_adds_random_order_seed_and_timeout(
+    tmp_path: Path,
+) -> None:
+    command = module._build_pytest_command(
+        test_file_path=tmp_path / "test_one.py",
+        tested_code_dir=tmp_path / "src",
+        coverage_config_file_path=tmp_path / ".coveragerc",
+        test_file_report_path=tmp_path / "report.json",
+        test_file_logs=True,
+        random_order=True,
+        random_order_seed=12345,
+        test_function_timeout=2.5,
+        extra_pytest_args=None,
+    )
+
+    assert "--random-order" in command
+    assert "--random-order-seed=12345" in command
+    assert "--timeout=2.5" in command
+    assert "--timeout-method=thread" in command
+    assert "pytest_harness.progress_plugin" in command
+
+
+# --- test_19_json_errors_outcome_is_normalized_to_error() ---------------------
+def test_19_json_errors_outcome_is_normalized_to_error(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "tests": [
+                    {
+                        "nodeid": "test_one.py::test_error",
+                        "outcome": "errors",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _, records = module._read_pytest_json_report(
+        report_path
+    )
+
+    assert len(records) == 1
+    assert records[0].outcome == "error"
 
 
 # === Internal helpers =========================================================

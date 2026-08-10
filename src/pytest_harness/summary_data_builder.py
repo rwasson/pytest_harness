@@ -1,8 +1,9 @@
 """
 summary_data_builder.py
 
-Last edited: 2026-07-14
+Last edited: 2026-08-10
 """
+
 import json
 from pathlib import Path
 
@@ -12,30 +13,34 @@ from coverage.exceptions import NoDataError
 from pytest_harness.constants_and_classes import (
     AggregateTestSummary,
     CombinedCoverageResult,
-    NotProcessedTestFileRecord,
-    ProblemTestFileRecord,
     SourceFileCoverageRecord,
     TestFileRecord,
     TestFileStatus,
-    WarningTestFileRecord,
 )
 
 
 # --- _build_summary_data() -----------------------------------
-def _build_summary_data(  # noqa: PLR0915
+def _build_summary_data(    # noqa: PLR0912, PLR0915
     *,
-    pytest_test_file_records: list[TestFileRecord],
+    test_file_records : list[TestFileRecord],
     combined_coverage_result: CombinedCoverageResult,
+    random_order_seed: int | None,
+    test_function_timeout: float | None,
     test_file_dir: Path,
     show_skipped_and_xfailed: bool,
-    debug_pytest_harness: bool,
+    debug_harness: bool,
 ) -> AggregateTestSummary:
     """
     Build aggregate test and official combined coverage summary data.
     """
-    warning_test_files: list[WarningTestFileRecord] = []
-    test_file_dir = test_file_dir.resolve()
-    test_file_count = len(pytest_test_file_records)
+
+    warning_test_files: list[TestFileRecord] = []
+    problem_test_files: list[TestFileRecord] = []
+    not_processed_test_files: list[TestFileRecord] = []
+    no_tests_collected_test_files: list[TestFileRecord] = []
+
+    test_file_dir_path = test_file_dir.resolve()
+    test_file_count = len(test_file_records)
 
     passed_test_function_count = 0
     failed_test_function_count = 0
@@ -51,11 +56,7 @@ def _build_summary_data(  # noqa: PLR0915
     xfailed_test_file_count = 0
     xpassed_test_file_count = 0
 
-    problem_test_files: list[ProblemTestFileRecord] = []
-    not_processed_test_files: list[NotProcessedTestFileRecord] = []
-    no_tests_collected_test_files: list[str] = []
-
-    for test_file_record in pytest_test_file_records:
+    for test_file_record in test_file_records :
         passed_test_function_count += test_file_record.passed_test_function_count
         failed_test_function_count += test_file_record.failed_test_function_count
         error_test_function_count += test_file_record.error_test_function_count
@@ -65,79 +66,56 @@ def _build_summary_data(  # noqa: PLR0915
 
         test_file_path = Path(test_file_record.test_file_path).resolve()
         try:
-            test_file_name = test_file_path.relative_to(test_file_dir).as_posix()
+            relative_test_file_path = test_file_path.relative_to(test_file_dir_path).as_posix()
         except ValueError as exc:
             raise RuntimeError(
                 "PYTEST HARNESS INTERNAL ERROR:\n"
                 "Test file record is outside the configured test directory:\n"
                 f"    Test file: {test_file_path}\n"
-                f"    Test directory: {test_file_dir}"
+                f"    Test directory: {test_file_dir_path}"
             ) from exc
 
+        test_file_record.test_file_label = str(relative_test_file_path)
+
         if test_file_record.status is TestFileStatus.NO_TESTS_COLLECTED:
-            no_tests_collected_test_files.append(test_file_name)
-
+            no_tests_collected_test_files.append(test_file_record)
         elif test_file_record.status is TestFileStatus.NOT_PROCESSED:
-            not_processed_test_files.append(
-                NotProcessedTestFileRecord(
-                    relative_test_file_path=test_file_name,
-                    not_processed_reason=(
-                        test_file_record.not_processed_reason or "processing error"),
-                    file_error_message=(
-                            test_file_record.file_error_message
-                            or "No additional error information was reported."
-                    ),
-                )
-            )
+            not_processed_test_files.append(test_file_record)
 
-        problem_record = ProblemTestFileRecord(
-            test_file_name=test_file_name,
-            failed_test_function_names=test_file_record.failed_test_function_names,
-            error_test_function_names=test_file_record.error_test_function_names,
-            skipped_test_function_names=test_file_record.skipped_test_function_names,
-            xfailed_test_function_names=test_file_record.xfailed_test_function_names,
-            xpassed_test_function_names=test_file_record.xpassed_test_function_names,
-        )
-
-        if problem_record.has_failures:
+        if test_file_record.has_failures:
             failed_test_file_count += 1
-        if problem_record.has_errors:
+        if test_file_record.has_errors:
             error_test_file_count += 1
-        if problem_record.has_skips:
+        if test_file_record.has_skips:
             skipped_test_file_count += 1
-        if problem_record.has_xfails:
+        if test_file_record.has_xfails:
             xfailed_test_file_count += 1
-        if problem_record.has_xpasses:
+        if test_file_record.has_xpasses:
             xpassed_test_file_count += 1
 
         # show_skipped_and_xfailed controls detailed Skipped and XFailed entries.
         has_displayed_problems = (
-            problem_record.has_failures
-            or problem_record.has_errors
-            or problem_record.has_xpasses
-            or (show_skipped_and_xfailed and (problem_record.has_skips or problem_record.has_xfails)
+            test_file_record.has_failures
+            or test_file_record.has_errors
+            or test_file_record.has_xpasses
+            or (show_skipped_and_xfailed and
+                (test_file_record.has_skips or test_file_record.has_xfails)
             )
         )
 
         if has_displayed_problems:
-            problem_test_files.append(problem_record)
+            problem_test_files.append(test_file_record)
 
         all_tests_passed = (
             test_file_record.status is TestFileStatus.PROCESSED
             and 0 < test_file_record.total_test_function_count == test_file_record.passed_test_function_count
         )
 
-
         if all_tests_passed:
             passed_test_file_count += 1
 
         if test_file_record.warning_count > 0:
-            warning_test_files.append(
-                WarningTestFileRecord(
-                    relative_test_file_path=test_file_name,
-                    warning_count=test_file_record.warning_count,
-                )
-            )
+            warning_test_files.append(test_file_record)
 
     source_file_coverage_records = sorted(
         (
@@ -158,7 +136,7 @@ def _build_summary_data(  # noqa: PLR0915
     branch_coverage_pct = combined_coverage_result.branch_coverage_pct
     total_coverage_pct = combined_coverage_result.total_coverage_pct
 
-    if debug_pytest_harness:
+    if debug_harness:
         print("Official combined Coverage.py counts of: executed / total")
         print(
             f"statements: {executed_line_count} / "
@@ -170,6 +148,8 @@ def _build_summary_data(  # noqa: PLR0915
         )
 
     return AggregateTestSummary(
+        random_order_seed=random_order_seed,
+        test_function_timeout_seconds=test_function_timeout,
         source_file_count=len(source_file_coverage_records),
         test_file_count=test_file_count,
         passed_test_file_count=passed_test_file_count,
@@ -193,12 +173,14 @@ def _build_summary_data(  # noqa: PLR0915
         branch_coverage_pct=branch_coverage_pct,
         total_coverage_pct=total_coverage_pct,
 
+        # all these now need fixing
         problem_test_files=problem_test_files,
         no_tests_collected_test_files=no_tests_collected_test_files,
         not_processed_test_files=not_processed_test_files,
         warning_test_files=warning_test_files,
         source_file_coverage_records=source_file_coverage_records,
     )
+
 
 # --- _combine_coverage_data_files() ------------------------------------------
 def _combine_coverage_data_files(
@@ -248,14 +230,8 @@ def _combine_coverage_data_files(
     )
 
     totals = report["totals"]
-
-    executed_line_count = int(
-        totals["covered_lines"]
-    )
-    total_line_count = int(
-        totals["num_statements"]
-    )
-
+    executed_line_count = int(totals["covered_lines"])
+    total_line_count = int(totals["num_statements"])
 
     # Coverage.py omits these fields when no branches exist.
     executed_branch_count = int(totals.get("covered_branches", 0))
@@ -271,7 +247,6 @@ def _combine_coverage_data_files(
         else 0.0
     )
     total_coverage_pct = float(totals["percent_covered"])
-
     tested_code_dir = tested_code_dir.resolve()
 
     records: dict[
@@ -283,9 +258,7 @@ def _combine_coverage_data_files(
         source_file_path = Path(reported_path)
 
         if not source_file_path.is_absolute():
-            source_file_path = (
-                Path.cwd() / source_file_path
-            )
+            source_file_path = (Path.cwd() / source_file_path)
 
         source_file_path = source_file_path.resolve()
 
@@ -372,9 +345,7 @@ def _combine_coverage_data_files(
             in branch_destinations.items()
         }
 
-        source_file_path_str = str(
-            source_file_path
-        )
+        source_file_path_str = str(source_file_path)
 
         records[
             source_file_path_str

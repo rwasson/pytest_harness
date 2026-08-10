@@ -1,13 +1,56 @@
-PYTEST_HARNESS MINOR UPDATE CHECKLIST (GitHub only)
-===================================================
-STAMP=$(date +%Y-%m-%d_%H-%M)
+PYTEST_HARNESS UPDATE CHECKLIST 
+=====================================
 
-git status --short --untracked-files=all
-git add .
-git diff --cached --stat
-git commit -m "Update $STAMP"
-git push origin main
+Quick version update
+====================
+AFTER UPDATE VERSION IN PYPROJECT.TOML
+1. push to GitHub
+
 git status
+git add .
+git commit -m "prep for new version"
+git push
+
+2. update GitHub tag
+A.
+# Change VERSION number!!
+VERSION="0.1.6"
+TAG="v$VERSION"
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+    echo "STOP: tag $TAG already exists."
+else
+    echo "Creating tag $TAG..."
+    git tag "$TAG"
+    git push origin "$TAG"
+    echo "Tag $TAG created and pushed."
+fi
+
+
+
+B. Confirm, and start over with newer version if these don't match
+echo "TAGGED COMMIT:"
+git show --no-patch --oneline "$TAG"
+echo
+echo "NEWEST COMMIT:"
+git log -1 --oneline
+
+
+3. Update build
+rm -rf dist
+python -m pip install --upgrade build twine
+python -m build
+python -m twine check dist/*
+python -m twine upload dist/*
+
+# enter PYPI token saved in Password app (will not see it on screen)
+
+4. verify 
+python -m pip install --upgrade logduo
+python -m pip show logduo
+
+5. Login to GitHub and click on `Release`, and Draft a new one
+
+
 
 
 
