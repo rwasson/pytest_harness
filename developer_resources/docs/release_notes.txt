@@ -19,7 +19,7 @@ This release improves README documentation.
 
 
 # ------------------------------------------------------------------------------
-pytest-harness 0.2.0
+pytest-harness 0.2.0 2026-08-10
 
 This release improves failure handling, warning visibility, nested-path support, and coverage reliability.
 

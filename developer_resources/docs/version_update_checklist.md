@@ -1,5 +1,72 @@
-PYTEST_HARNESS UPDATE CHECKLIST 
-=====================================
+MINOR UPDATE CHECKLIST (GitHub only)
+===========================================
+# Change reason string!!
+
+git status
+git add .
+git commit -m "Added left_indent"
+git push
+
+
+Quick version update
+===========================================
+AFTER UPDATE VERSION IN PYPROJECT.TOML
+1. push to GitHub
+# Change Release number!!
+
+git status
+git add .
+git commit -m "Release pytest-harness 0.2.0"
+git push
+
+2. update GitHub tag
+A.
+# Change VERSION number!!
+VERSION="0.2.0"
+TAG="v$VERSION"
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+    echo "STOP: tag $TAG already exists."
+else
+    echo "Creating tag $TAG..."
+    git tag "$TAG"
+    git push origin "$TAG"
+    echo "Tag $TAG created and pushed."
+fi
+
+
+
+B. Confirm, and start over with newer version if these don't match
+echo "TAGGED COMMIT:"
+git show --no-patch --oneline "$TAG"
+echo
+echo "NEWEST COMMIT:"
+git log -1 --oneline
+
+
+3. Update build (should see two PASSED statements at end)
+rm -rf dist
+python -m pip install --upgrade build twine
+python -m build
+python -m twine check dist/*
+ls -l dist                    # shows end of path for new dist
+
+
+4. check in another project
+example for 0.2.0:
+python -m pip install --force-reinstall "/Users/renyawasson/Local/PycharmProjects_local/pytest_harness_project/dist/pytest_harness-0.2.0-py3-none-any.whl"
+
+
+5. push to PyPI (in Logduo project)
+python -m twine upload dist/*
+
+# enter PYPI token saved in Password app (will not see it on screen)
+
+4. verify PyPi push was successful
+python -m pip install --upgrade logduo
+python -m pip show logduo
+
+5. Login to GitHub and click on `Release`, and Draft a new one
+
 
 Quick version update
 ====================
@@ -8,7 +75,7 @@ AFTER UPDATE VERSION IN PYPROJECT.TOML
 
 git status
 git add .
-git commit -m "prep for new version"
+git commit -m "pytest-harness v0.2.0"
 git push
 
 2. update GitHub tag
