@@ -98,7 +98,7 @@ def test_01_pytest_harness_runs_with_windows_temp_paths(
     test_file_log_text = test_file_logs[0].read_text(encoding="utf-8")
 
     assert "Pytest Harness Summary" in main_log_text
-    assert "Pytest Harness exit code: 0 (no errors detected)" in main_log_text
+    assert "Pytest Harness exit code: 0 (no test run errors detected)" in main_log_text
 
     assert "1 passed" in test_file_log_text
     assert "pytest exit code: 0" in test_file_log_text
