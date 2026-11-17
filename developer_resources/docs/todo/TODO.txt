@@ -9,6 +9,13 @@ TODO
 `additional_python_paths` : `list[pathlib.Path] | None`
 `extra_import_dir_paths`
 
+do 2 instead?
+
+2. allows subsets of tested_file_under_code_dir, use a list instead of dir
+can be list of dirs, or list of files
+3. allow turning off coverage? faster and can have broken code in tested_file_under_code_dir
+if not directly tested by test files
+
 Optional directories added to the import path of each isolated pytest
 subprocess.
 

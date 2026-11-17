@@ -42,6 +42,7 @@ from pathlib import Path
 from logduo import log
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+print(f"PROJECT_ROOT: {PROJECT_ROOT}")
 
 
 @dataclass(frozen=True)

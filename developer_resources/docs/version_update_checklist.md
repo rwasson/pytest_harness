@@ -81,7 +81,7 @@ git push
 2. update GitHub tag
 A.
 # Change VERSION number!!
-VERSION="0.1.6"
+VERSION="0.2.0"
 TAG="v$VERSION"
 if git rev-parse "$TAG" >/dev/null 2>&1; then
     echo "STOP: tag $TAG already exists."
